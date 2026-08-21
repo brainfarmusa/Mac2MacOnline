@@ -1,0 +1,3 @@
+import type {Metadata} from "next";import "./globals.css";
+export const metadata:Metadata={title:{default:"Mac2MacOnline | Technology Remarketing",template:"%s | Mac2MacOnline"},description:"Buy, sell and consign computers, servers, components and enterprise technology with Mac2MacOnline.",icons:{icon:"/favicon.ico",shortcut:"/favicon.ico"},openGraph:{title:"Mac2MacOnline",description:"Get rid of it. Recover value. Build what's next.",type:"website"}};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

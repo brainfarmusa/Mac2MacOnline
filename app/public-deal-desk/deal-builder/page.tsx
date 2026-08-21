@@ -24,7 +24,7 @@ export default function DealBuilder(){
   const [dealNumber,setDealNumber]=useState("B082126-01");
   const [description,setDescription]=useState("Mixed enterprise server lot including Dell, Lenovo, IBM, HP, HPE, Buffalo and Intel systems.");
   const [location,setLocation]=useState("California, USA");
-  const [closeDate,setCloseDate]=useState("");
+  const [closeDate,setCloseDate]=useState("2026-08-28T17:00");
 
   useEffect(()=>{fetch("/deals/itamg-server-lot-source.csv").then(r=>r.text()).then(text=>{const parsed=parseCsv(text);const headers=parsed.shift()||[];setChoices(headers.map(source=>({source,label:DEFAULT_LABELS[source]||source,included:RECOMMENDED.has(source)})));setRows(parsed.filter(row=>row.some(Boolean)));setStatus(`${parsed.length.toLocaleString()} records and ${headers.length} spreadsheet columns loaded.`)}).catch(()=>setStatus("The ITAMG spreadsheet could not be loaded."))},[]);
   const selected=useMemo(()=>choices.map((choice,index)=>({...choice,index})).filter(choice=>choice.included),[choices]);

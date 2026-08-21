@@ -21,7 +21,7 @@ export default function DealBuilder(){
   const [rows,setRows]=useState<string[][]>([]);
   const [status,setStatus]=useState("Reading the ITAMG spreadsheet headers…");
   const [title,setTitle]=useState("181-Unit Mixed Enterprise Server Lot");
-  const [dealNumber,setDealNumber]=useState("PDD-SERVER-001");
+  const [dealNumber,setDealNumber]=useState("B082126-01");
   const [description,setDescription]=useState("Mixed enterprise server lot including Dell, Lenovo, IBM, HP, HPE, Buffalo and Intel systems.");
   const [location,setLocation]=useState("California, USA");
   const [closeDate,setCloseDate]=useState("");

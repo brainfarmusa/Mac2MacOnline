@@ -1,0 +1,7 @@
+import Link from "next/link";
+import {Shell} from "@/components/SiteShell";
+import LiveBidBoard from "@/components/LiveBidBoard";
+
+export const metadata={title:"Live Bid Board",description:"Search current Mac2MacOnline inventory, active lots and live technology purchasing opportunities."};
+
+export default function LiveBidBoardPage(){return <Shell><main className="bid-board-page"><section className="page-hero"><div className="wrap"><span className="eyebrow">Real-time technology opportunities</span><h1>Mac2MacOnline Live Bid Board.</h1><p>Search current inventory and active buying opportunities maintained by the Mac2MacOnline team. Listings, quantities, notes and closing dates update directly from our live Google Sheets board.</p><div className="actions"><a className="button" href="#current-lots">View Current Lots</a><Link className="button secondary" href="/want-to-buy">Submit a Buying Request</Link></div></div></section><section className="live-board-section" id="current-lots"><div className="wrap"><div className="live-board-heading"><div><span className="eyebrow">Live inventory &amp; opportunities</span><h2>Current lots from our live bid board.</h2><p>These listings update automatically from the Mac2MacOnline Google Sheets bid board.</p></div><a className="button secondary" href="https://docs.google.com/spreadsheets/d/1HgPjnh9I4BvF1H8E63bMUnCPKbqHbggoRwKTGA0FNV8/edit?gid=2088576041#gid=2088576041" target="_blank" rel="noreferrer">Open Full Bid Board</a></div><LiveBidBoard/></div></section></main></Shell>}

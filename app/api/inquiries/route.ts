@@ -8,7 +8,7 @@ export async function POST(request:Request){
     const company=String(form.get("Company")||"").trim();
     const email=String(form.get("Email")||"").trim();
     if(!name||!company||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return Response.json({error:"Please complete your name, company and a valid email address."},{status:400});
-    const upstream=await fetch(ENDPOINT,{method:"POST",headers:{Authorization:`Bearer ${PUBLISHABLE_KEY}`,apikey:PUBLISHABLE_KEY,Origin:"https://brainfarmusa.github.io",Referer:"https://brainfarmusa.github.io/BrainFarm/"},body:form});
+    const upstream=await fetch(ENDPOINT,{method:"POST",headers:{Authorization:`Bearer ${PUBLISHABLE_KEY}`,apikey:PUBLISHABLE_KEY,Origin:"https://www.brainfarmusa.ai",Referer:"https://www.brainfarmusa.ai"},body:form});
     const text=await upstream.text();
     let result:Record<string,unknown>={};
     try{result=JSON.parse(text) as Record<string,unknown>}catch{}

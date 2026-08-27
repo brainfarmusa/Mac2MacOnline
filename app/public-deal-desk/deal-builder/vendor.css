@@ -1,0 +1,18 @@
+.vendorGate{margin-bottom:22px;padding:22px;border:1px solid #bed4e2;border-radius:16px;background:#f7fbfd}
+.vendorGate>header{display:flex;justify-content:space-between;gap:24px;align-items:start}
+.vendorGate>header span{color:#2184b5;font-size:.66rem;font-weight:900;letter-spacing:.12em}
+.vendorGate>header h3{margin:5px 0 6px;font-size:1.35rem}
+.vendorGate>header p{max-width:720px;margin:0;color:#647b8d;line-height:1.55}
+.vendorGate>header b{white-space:nowrap;padding:7px 10px;border-radius:999px;background:#e8f1f6;color:#4b687a;font-size:.72rem}
+.assignedEmployeeField{display:grid;gap:6px;margin-top:18px;color:#486274;font-size:.75rem;font-weight:900}.assignedEmployeeField input{width:100%;min-height:43px;padding:9px 11px;border:1px solid #b8cedc;border-radius:8px;background:#edf5f9;color:#17344a;font:inherit;font-weight:700}.assignedEmployeeField small{color:#688092;font-weight:500}
+.vendorPicker{display:flex;gap:12px;align-items:end;margin-top:20px}
+.vendorPicker label{display:grid;flex:1;gap:6px;color:#486274;font-size:.75rem;font-weight:900}
+.vendorPicker select,.vendorForm input{width:100%;min-height:43px;padding:9px 11px;border:1px solid #b8cedc;border-radius:8px;background:#fff;color:#17344a;font:inherit}
+.vendorPicker button,.vendorActions button{min-height:43px;padding:10px 15px;border:0;border-radius:8px;background:#167fbd;color:#fff;font-weight:900;cursor:pointer}
+.vendorForm{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:20px}
+.vendorForm label{display:grid;gap:6px;color:#486274;font-size:.75rem;font-weight:900}
+.vendorForm .wide{grid-column:1/-1}.vendorActions{grid-column:1/-1;display:flex;align-items:center;gap:10px}
+.vendorActions .cancel{border:1px solid #a9bfcd;background:#fff;color:#406176}.vendorActions small{margin-left:auto;color:#688092}
+.selectedVendor{display:grid;gap:3px;margin-top:15px;padding:13px 15px;border-left:4px solid #35a467;background:#eaf8ef;color:#254e39}
+.selectedVendor span,.selectedVendor small{font-size:.78rem}.uploadDropzone.locked{opacity:.58;background:#edf2f5}.uploadDropzone button:disabled{cursor:not-allowed;opacity:.55}
+@media(max-width:700px){.vendorGate>header,.vendorPicker,.vendorActions{align-items:stretch;flex-direction:column}.vendorForm{grid-template-columns:1fr}.vendorForm .wide{grid-column:auto}.vendorActions small{margin-left:0}}

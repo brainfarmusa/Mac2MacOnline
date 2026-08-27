@@ -1,0 +1,3 @@
+import {env} from "cloudflare:workers";
+import {customerUser} from "../../../../lib/customer-server";
+export async function GET(request:Request){const user=await customerUser(request);if(!user)return Response.json({error:"Sign in required."},{status:401});try{const result=await env.DB.prepare("SELECT b.internal_bid_number,b.deal_number,b.line_count,b.total_quantity,b.total_bid,b.status,b.submitted_at FROM internal_bids b JOIN internal_bid_customers c ON c.bid_id=b.id WHERE c.customer_user_id=? ORDER BY b.submitted_at DESC").bind(user.id).all();return Response.json({bids:result.results||[]})}catch{return Response.json({bids:[]})}}

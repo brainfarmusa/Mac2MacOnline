@@ -1,0 +1,54 @@
+.lineTotal{
+  display:block;
+  min-width:105px;
+  padding:10px;
+  border:1px solid #cbd8e1;
+  border-radius:7px;
+  background:#edf3f7;
+  color:#173a55;
+  font-weight:900;
+  text-align:right;
+}
+
+.lineItems table.pricingTable{
+  min-width:1100px;
+}
+.pricingTable .bidSticky{
+  position:sticky;
+  z-index:2;
+  background:#fff;
+  text-align:right;
+  white-space:nowrap;
+}
+.pricingTable th.bidSticky{
+  z-index:5;
+  background:#0e2b48;
+}
+.pricingTable .bidQty{
+  right:245px;
+  width:65px;
+  min-width:65px;
+  box-shadow:-7px 0 12px #17395214;
+}
+.pricingTable .bidPrice{
+  right:110px;
+  width:135px;
+  min-width:135px;
+}
+.pricingTable .bidTotal{
+  right:0;
+  width:110px;
+  min-width:110px;
+}
+.pricingTable tr.hasBid .bidSticky{
+  background:#edf8ff;
+}
+.pricingTable .lineTotal{
+  min-width:100px;
+}
+.pricingTable .detailCell{
+  max-width:220px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}

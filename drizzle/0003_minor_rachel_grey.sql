@@ -1,0 +1,1 @@
+ALTER TABLE `deal_comments` ADD `edited_at` text;

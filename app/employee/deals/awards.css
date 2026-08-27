@@ -1,0 +1,28 @@
+.deleteAwardButton{
+ padding:10px 12px;
+ border:1px solid #c45b53;
+ border-radius:8px;
+ background:#fff5f4;
+ color:#9c3129;
+ font:inherit;
+ font-weight:900;
+ cursor:pointer;
+}
+.deleteAwardButton:hover{background:#fee9e7}
+.dealManageList>article:not(.dealManageRow){grid-template-columns:minmax(0,1fr) 110px auto auto;gap:10px;overflow:hidden}.dealManageList>article:not(.dealManageRow) .dealManageIdentity{display:block;min-width:0;white-space:normal}.dealManageList>article:not(.dealManageRow) .dealManageIdentity h3{margin:3px 0}.dealManageList>article:not(.dealManageRow) .dealManageIdentity p{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dealManageList>article:not(.dealManageRow) .manageBidTotal{position:relative;z-index:1;min-width:110px;padding-left:8px;background:#fff;text-align:right;white-space:nowrap}.dealManageList>article:not(.dealManageRow) .deleteAwardButton{padding:5px 6px;border-radius:8px;font-size:10px;line-height:normal}
+.deleteOpenDealButton{
+ padding:10px 12px;
+ border:1px solid #c45b53;
+ border-radius:8px;
+ background:#fff5f4;
+ color:#9c3129;
+ font:inherit;
+ font-weight:900;
+ cursor:pointer;
+}
+.deleteOpenDealButton:hover{background:#fee9e7}
+.dealManageRowTop .manageActions .deleteOpenDealButton{padding:5px 6px;border-radius:8px;font-size:10px;line-height:normal}
+.dealManageRowTop .manageActions .deleteOpenDealButton{order:2}
+.dealManageRowTop .manageActions select{order:3}
+.dealLifecycleTabs{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 18px}.dealLifecycleTabs button{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #b9cad6;border-radius:9px;background:#fff;color:#49677b;font:inherit;font-weight:850;cursor:pointer}.dealLifecycleTabs button.active{border-color:#1766a6;background:#1766a6;color:#fff}.dealLifecycleTabs span{display:inline-grid;min-width:22px;place-items:center;padding:2px 6px;border-radius:20px;background:#e6eef4;color:#31566e;font-size:11px}.dealLifecycleTabs button.active span{background:#ffffff2b;color:#fff}
+.manageStatus.working{background:#e8f2fb;color:#245d85}.manageStatus.pending{background:#fff1c7;color:#775900}.manageStatus.no_bid{background:#eceff2;color:#536675}.manageStatus.completed{background:#dff5e7;color:#17623a}

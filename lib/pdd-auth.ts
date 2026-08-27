@@ -24,6 +24,24 @@ export async function pddAuthFetch(path:string,init:RequestInit={}){
   return fetch(`${pddSupabaseUrl}${path}`,{...init,headers});
 }
 
+export async function uploadPddDocument(path:string,blob:Blob,session:PddSession){
+ return fetch(`${pddSupabaseUrl}/storage/v1/object/pdd-deal-uploads/${path.split("/").map(encodeURIComponent).join("/")}`,{method:"POST",headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${session.access_token}`,"Content-Type":blob.type||"application/octet-stream","x-upsert":"false"},body:blob});
+}
+
+export async function replacePddDocument(path:string,blob:Blob,session:PddSession){
+ return fetch(`${pddSupabaseUrl}/storage/v1/object/pdd-deal-uploads/${path.split("/").map(encodeURIComponent).join("/")}`,{method:"POST",headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${session.access_token}`,"Content-Type":blob.type||"application/octet-stream","x-upsert":"true"},body:blob});
+}
+
+export async function deletePddDocument(path:string,session:PddSession){
+ return fetch(`${pddSupabaseUrl}/storage/v1/object/pdd-deal-uploads/${path.split("/").map(encodeURIComponent).join("/")}`,{method:"DELETE",headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${session.access_token}`}});
+}
+
+export async function downloadPddDocument(path:string,session:PddSession,filename:string){
+ const response=await fetch(`${pddSupabaseUrl}/storage/v1/object/authenticated/pdd-deal-uploads/${path.split("/").map(encodeURIComponent).join("/")}`,{headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${session.access_token}`}});
+ if(!response.ok)throw new Error("The stored document could not be downloaded.");
+ const link=document.createElement("a");link.href=URL.createObjectURL(await response.blob());link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
+
 export async function currentPddSession(){
   let session=readPddSession();
   if(!session)return null;

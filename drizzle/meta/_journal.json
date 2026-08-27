@@ -8,6 +8,34 @@
       "when": 1787325654367,
       "tag": "0000_parched_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787501383823,
+      "tag": "0001_free_mandroid",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787521576635,
+      "tag": "0002_broken_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787527068563,
+      "tag": "0003_minor_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787531200000,
+      "tag": "0004_marketing_conversions",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+import type {Metadata} from "next";export const metadata:Metadata={title:"Public Deal Desk | Wholesale Technology Opportunities",description:"Review active Mac2MacOnline wholesale technology lots, download deal spreadsheets and submit confidential line-item offers."};export default function Layout({children}:{children:React.ReactNode}){return children}

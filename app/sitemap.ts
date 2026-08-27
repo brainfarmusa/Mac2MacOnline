@@ -2,7 +2,7 @@ import type {MetadataRoute} from "next";
 
 export default function sitemap():MetadataRoute.Sitemap{
   const base="https://www.mac2maconline.com";
-  const routes=["","/about","/equipment-we-buy","/sell-ram-ssds-gpus-apple","/we-buy-ram","/we-buy-ssds","/we-buy-gpus","/we-buy-apple-equipment","/insights","/insights/sell-surplus-ram-ssds-gpus-apple-equipment","/insights/where-to-sell-used-server-ram-and-ssds-in-bulk","/consignment","/want-to-buy","/want-to-sell","/request-quote","/live-bid-board","/public-deal-desk"];
+  const routes=["","/about","/privacy","/equipment-we-buy","/sell-ram-ssds-gpus-apple","/we-buy-ram","/we-buy-ssds","/we-buy-gpus","/we-buy-apple-equipment","/insights","/insights/sell-surplus-ram-ssds-gpus-apple-equipment","/insights/where-to-sell-used-server-ram-and-ssds-in-bulk","/consignment","/want-to-buy","/want-to-sell","/request-quote","/live-bid-board","/public-deal-desk"];
   return routes.map(path=>({
     url:`${base}${path}`,
     lastModified:new Date(),

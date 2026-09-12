@@ -666,6 +666,7 @@ export default function ActiveBidsPage() {
                     <th>Comments / Notes</th>
                     <th>Bid count</th>
                     <th>Top bidder</th>
+                    <th>Rep</th>
                     <th>Highest bid</th>
                     <th>Our offer</th>
                     <th>Projected profit</th>
@@ -866,11 +867,13 @@ export default function ActiveBidsPage() {
                             {info.count}
                           </button>
                         </td>
+                        <td>{info.top?.company || ""}</td>
                         <td>
-                          {info.top?.company || ""}
-                          {info.top && (
-                            <small> · {info.top.sales_owner_name ? repInitials(info.top.sales_owner_name) : "WEB"}</small>
-                          )}
+                          {info.top
+                            ? info.top.sales_owner_name
+                              ? repInitials(info.top.sales_owner_name)
+                              : "WEB"
+                            : ""}
                         </td>
                         <td>
                           {info.top
@@ -939,7 +942,7 @@ export default function ActiveBidsPage() {
                   })}
                   {!rows.length && (
                     <tr>
-                      <td className="activeBidEmpty" colSpan={17}>
+                      <td className="activeBidEmpty" colSpan={19}>
                         No bids in this section.
                       </td>
                     </tr>

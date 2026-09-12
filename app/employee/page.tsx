@@ -204,6 +204,9 @@ export default function EmployeeDashboard() {
               records.
             </p>
             <div className="workbookActionList">
+              <a href="/employee/reverse-offer">
+                Create Purchase Order <b>→</b>
+              </a>
               <a href="/employee/contacts?type=vendors&amp;new=1">
                 New Vendor <b>→</b>
               </a>
@@ -211,9 +214,6 @@ export default function EmployeeDashboard() {
               <a href="/employee/applications?site=brainfarm&amp;type=vendor">BrainFarm Vendor Onboarding <b>→</b></a>
               <a href="/employee/purchase-order-upload">
                 PO From Spreadsheet <b>→</b>
-              </a>
-              <a href="/employee/reverse-offer">
-                Create Purchase Order <b>→</b>
               </a>
               <a href="/employee/orders?type=purchase">
                 Purchase Order History <b>→</b>

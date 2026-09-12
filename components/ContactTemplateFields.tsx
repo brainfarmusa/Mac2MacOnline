@@ -40,6 +40,7 @@ const usStates = [
   "North Dakota",
   "Ohio",
   "Oklahoma",
+  "Oregon",
   "Pennsylvania",
   "Rhode Island",
   "South Carolina",

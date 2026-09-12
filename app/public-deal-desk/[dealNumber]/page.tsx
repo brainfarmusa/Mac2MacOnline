@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Shell } from "@/components/SiteShell";
 import { detectProductCategory } from "@/lib/productCategory";
+import { dealSpreadsheetFilename } from "@/lib/dealFilename";
 import {
   downloadBidSpreadsheet,
   readBidSpreadsheet,
@@ -324,7 +325,7 @@ export default function DynamicLineItemBid() {
         })),
         { header: "Qty", value: (index: number) => lines[index].quantity },
       ],
-      deal.spreadsheet_filename,
+      dealSpreadsheetFilename(deal),
       { awardMode: multipleAwards ? "multiple" : "single" },
     );
   }

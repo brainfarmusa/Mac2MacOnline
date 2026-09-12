@@ -20,6 +20,7 @@ import ContactTemplateFields from "../../../components/ContactTemplateFields";
 import DirectorySpreadsheetImport,{type DirectoryImportRow,type DirectoryImportResult} from "../../../components/DirectorySpreadsheetImport";
 import BusinessRecordAttachments from "../../../components/BusinessRecordAttachments";
 import BusinessRecordComments from "../../../components/BusinessRecordComments";
+import CompanyContacts from "../../../components/CompanyContacts";
 import {responseErrorMessage} from "../../../lib/spreadsheetFile";
 
 
@@ -1309,6 +1310,7 @@ export default function EndUserCustomers() {
                 <dd>{item.organization_size || "—"}</dd>
               </div>
             </dl>
+            <CompanyContacts recordType="prospect" recordId={item.id} session={session} initialContact={{contactName:item.contact_name,jobTitle:item.job_title,email:item.email,phone:item.phone,isPrimary:true}} initialAddress={{billingAddress1:item.address1,billingAddress2:item.address2,billingCity:item.city,billingRegion:item.region,billingPostalCode:item.postal_code,billingCountry:item.country,shippingSameAsBilling:true}}/>
             <BusinessRecordComments recordType="prospect" recordId={item.id} session={session}/>
             <BusinessRecordAttachments recordType="prospect" recordId={item.id} recordName={item.company_name} session={session} isAdministrator={profile?.role==="administrator"}/>
           </article>

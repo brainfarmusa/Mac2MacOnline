@@ -4,6 +4,7 @@ import { supabaseReady, supabaseRequest } from "../../../lib/supabase";
 import { customerUser } from "../../../lib/customer-server";
 import { employeeUser } from "../../../lib/employee-server";
 import { pddSupabaseKey, pddSupabaseUrl } from "../../../lib/pdd-auth";
+import { ensureCustomerCompany } from "../../../lib/business-company";
 import {
   groupBidLinesByBox,
   isMultipleAwardDeal,
@@ -102,12 +103,14 @@ export async function POST(request: Request) {
     }
     let liveDeal = false,
       dealQuantity = 0,
-      liveLines: LiveLine[] = [];
+      liveLines: LiveLine[] = [],
+      dealOwnerName = "",
+      dealOwnerEmail = "";
     if (!liveDeal && supabaseReady()) {
       const acceptedStatuses = submittedOnBehalf
         ? "open,working,pending,won"
         : "open,working,pending";
-      const dealPath = `/rest/v1/pdd_public_deals?select=deal_number,quantity,public_lines&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(${acceptedStatuses})&limit=1`;
+      const dealPath = `/rest/v1/pdd_public_deals?select=deal_number,quantity,public_lines,owner_name,owner_email&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(${acceptedStatuses})&limit=1`;
       const dealResponse = submittedOnBehalf
         ? await fetch(`${pddSupabaseUrl}${dealPath}`, {
             headers: {
@@ -117,9 +120,11 @@ export async function POST(request: Request) {
           })
         : await supabaseRequest(dealPath);
       const rows = dealResponse.ok
-        ? ((await dealResponse.json()) as {
+          ? ((await dealResponse.json()) as {
             quantity: number;
             public_lines?: LiveLine[];
+            owner_name?: string;
+            owner_email?: string;
           }[])
         : [];
       liveDeal = rows.length > 0;
@@ -127,6 +132,8 @@ export async function POST(request: Request) {
       liveLines = Array.isArray(rows[0]?.public_lines)
         ? rows[0].public_lines
         : [];
+      dealOwnerName = clean(rows[0]?.owner_name, 160);
+      dealOwnerEmail = clean(rows[0]?.owner_email, 200);
     }
     if (!liveDeal)
       return Response.json(
@@ -367,6 +374,16 @@ export async function POST(request: Request) {
     const customerUserId = submittedOnBehalf
       ? clean(body.customerUserId, 100) || null
       : user?.id || null;
+    if (!submittedOnBehalf)
+      await ensureCustomerCompany({
+        company,
+        contactName,
+        email,
+        phone,
+        assignedEmployeeName: dealOwnerName,
+        assignedEmployeeEmail: dealOwnerEmail,
+        source: user ? "customer-account-bid" : "website-bid",
+      });
     if (multipleAwards && offerType === "line_item") {
       const lotGroups = new Map<string, SubmittedLine[]>();
       for (const line of lineItems) {

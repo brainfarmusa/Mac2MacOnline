@@ -13,6 +13,7 @@ import DirectorySpreadsheetImport,{type DirectoryImportRow,type DirectoryImportR
 import BusinessRecordAttachments from "../../../components/BusinessRecordAttachments";
 import BusinessRecordComments from "../../../components/BusinessRecordComments";
 import BusinessRecordStatus from "../../../components/BusinessRecordStatus";
+import CompanyContacts from "../../../components/CompanyContacts";
 import {responseErrorMessage} from "../../../lib/spreadsheetFile";
 
 type Vendor = {
@@ -853,6 +854,7 @@ export default function ContactsDirectory() {
                                 <dd>{date(v.updated_at)}</dd>
                               </div>
                             </dl>
+                            <CompanyContacts recordType="vendor" recordId={v.id} session={session} initialContact={{contactName:v.contact_name,jobTitle:"",email:v.email,phone:v.phone,isPrimary:true}} initialAddress={{billingAddress1:v.address1,billingAddress2:v.address2,billingCity:v.city,billingRegion:v.region,billingPostalCode:v.postal_code,billingCountry:v.country,shippingSameAsBilling:true}}/>
                             <BusinessRecordStatus recordType="vendor" recordId={v.id} session={session}/>
                             <BusinessRecordComments recordType="vendor" recordId={v.id} session={session}/>
                             <BusinessRecordAttachments recordType="vendor" recordId={v.id} recordName={v.company_name} session={session} isAdministrator={isAdministrator}/>
@@ -977,6 +979,7 @@ export default function ContactsDirectory() {
                                 <dd>{date(c.last_bid_at)}</dd>
                               </div>
                             </dl>
+                            <CompanyContacts recordType="customer" recordId={c.id} session={session} initialContact={{contactName:c.contact_name,jobTitle:"",email:c.email,phone:c.phone,isPrimary:true}} initialAddress={{billingAddress1:c.address1,billingAddress2:c.address2,billingCity:c.city,billingRegion:c.region,billingPostalCode:c.postal_code,billingCountry:c.country,shippingSameAsBilling:true}}/>
                             <BusinessRecordStatus recordType="customer" recordId={c.id} session={session}/>
                             <BusinessRecordComments recordType="customer" recordId={c.id} session={session}/>
                             <BusinessRecordAttachments recordType="customer" recordId={c.id} recordName={c.company||c.email} session={session} isAdministrator={isAdministrator}/>

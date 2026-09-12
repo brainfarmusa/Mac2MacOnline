@@ -143,3 +143,40 @@ export const businessRecordComments = sqliteTable("business_record_comments", {
   updatedBy: text("updated_by").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const businessCompanyContacts = sqliteTable("business_company_contacts", {
+  id: text("id").primaryKey(),
+  recordType: text("record_type").notNull(),
+  recordId: text("record_id").notNull(),
+  contactName: text("contact_name").notNull(),
+  jobTitle: text("job_title").notNull().default(""),
+  email: text("email").notNull(),
+  phone: text("phone").notNull().default(""),
+  isPrimary: integer("is_primary", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("business_company_contacts_record_email_unique").on(table.recordType, table.recordId, table.email),
+]);
+
+export const businessCompanyAddresses = sqliteTable("business_company_addresses", {
+  id: text("id").primaryKey(),
+  recordType: text("record_type").notNull(),
+  recordId: text("record_id").notNull(),
+  billingAddress1: text("billing_address1").notNull().default(""),
+  billingAddress2: text("billing_address2").notNull().default(""),
+  billingCity: text("billing_city").notNull().default(""),
+  billingRegion: text("billing_region").notNull().default(""),
+  billingPostalCode: text("billing_postal_code").notNull().default(""),
+  billingCountry: text("billing_country").notNull().default("United States"),
+  shippingSameAsBilling: integer("shipping_same_as_billing", { mode: "boolean" }).notNull().default(true),
+  shippingAddress1: text("shipping_address1").notNull().default(""),
+  shippingAddress2: text("shipping_address2").notNull().default(""),
+  shippingCity: text("shipping_city").notNull().default(""),
+  shippingRegion: text("shipping_region").notNull().default(""),
+  shippingPostalCode: text("shipping_postal_code").notNull().default(""),
+  shippingCountry: text("shipping_country").notNull().default("United States"),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("business_company_addresses_record_unique").on(table.recordType, table.recordId),
+]);

@@ -435,7 +435,7 @@ export default function DynamicLineItemBid() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${customerSession.access_token}`,
         },
-        body: JSON.stringify(bidder),
+        body: JSON.stringify({ ...bidder, dealNumber: deal?.deal_number }),
       });
     } catch {
       /* The locally saved profile remains available while remote sync recovers. */
@@ -503,7 +503,7 @@ export default function DynamicLineItemBid() {
         await fetch("/api/customer/profile", {
           method: "PUT",
           headers,
-          body: JSON.stringify(bidder),
+          body: JSON.stringify({ ...bidder, dealNumber: deal.deal_number }),
         });
       setConfirmation({
         number: data.internalBidNumber,

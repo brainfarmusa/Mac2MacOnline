@@ -37,6 +37,7 @@ type Bid = {
   internal_bid_number: string;
   deal_number: string;
   company: string;
+  sales_owner_name: string;
   total_bid: number;
   status: "submitted" | "won" | "lost";
 };
@@ -865,7 +866,12 @@ export default function ActiveBidsPage() {
                             {info.count}
                           </button>
                         </td>
-                        <td>{info.top?.company || ""}</td>
+                        <td>
+                          {info.top?.company || ""}
+                          {info.top && (
+                            <small> · {info.top.sales_owner_name ? repInitials(info.top.sales_owner_name) : "WEB"}</small>
+                          )}
+                        </td>
                         <td>
                           {info.top
                             ? money.format(Number(info.top.total_bid))
@@ -965,6 +971,7 @@ export default function ActiveBidsPage() {
                         : bid.status === "lost"
                           ? "Lost"
                           : "Pending"}
+                      {` · ${bid.sales_owner_name ? repInitials(bid.sales_owner_name) : "WEB"}`}
                     </small>
                   </span>
                   <b>{money.format(Number(bid.total_bid))}</b>

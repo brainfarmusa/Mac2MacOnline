@@ -1222,6 +1222,37 @@ export default function DealBuilder() {
     if (preview) return preview;
     if (!saved || !session)
       throw new Error("The saved spreadsheet is not available.");
+    if (saved.column_mapping?.sourceMode === "typed") {
+      const headers = saved.source_headers.some((header) =>
+        quantityHeader.test(header),
+      )
+        ? saved.source_headers
+        : [...saved.source_headers, "Qty"];
+      const quantityIndex = headers.findIndex((header) =>
+        quantityHeader.test(header),
+      );
+      const rows = saved.quantified_lines.map((line) =>
+        headers.map((header, index) =>
+          index === quantityIndex
+            ? String(line.quantity)
+            : line.values[header] || "",
+        ),
+      );
+      const parsed: RawSpreadsheetPreview = {
+        headers,
+        rows,
+        rowCount: rows.length,
+        headerRow: 0,
+        rowSources: saved.quantified_lines.map((line, index) => ({
+          sheet: "Typed Deal Entry",
+          row: line.sources[0]?.row || index + 1,
+        })),
+      };
+      setPreview(parsed);
+      if (!mapping.some((column) => column.role === "quantity"))
+        setMapping(choicesFor(headers));
+      return parsed;
+    }
     const response = await fetch(
       `${pddSupabaseUrl}/storage/v1/object/authenticated/pdd-deal-uploads/${encodePath(saved.storage_path)}`,
       {

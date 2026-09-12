@@ -11,10 +11,10 @@ export type PddSession={
 
 const sessionKey="m2m-pdd-employee-session";
 
-export function savePddSession(session:PddSession){localStorage.setItem(sessionKey,JSON.stringify(session))}
-export function clearPddSession(){localStorage.removeItem(sessionKey)}
+export function savePddSession(session:PddSession,remember=true){const value=JSON.stringify(session);localStorage.removeItem(sessionKey);sessionStorage.removeItem(sessionKey);(remember?localStorage:sessionStorage).setItem(sessionKey,value)}
+export function clearPddSession(){localStorage.removeItem(sessionKey);sessionStorage.removeItem(sessionKey)}
 export function readPddSession():PddSession|null{
-  try{return JSON.parse(localStorage.getItem(sessionKey)||"null") as PddSession|null}catch{return null}
+  try{return JSON.parse(sessionStorage.getItem(sessionKey)||localStorage.getItem(sessionKey)||"null") as PddSession|null}catch{return null}
 }
 
 export async function pddAuthFetch(path:string,init:RequestInit={}){
@@ -49,7 +49,16 @@ export async function currentPddSession(){
     const response=await pddAuthFetch("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:session.refresh_token})});
     if(!response.ok){clearPddSession();return null}
     session=await response.json() as PddSession;
-    savePddSession(session);
+    savePddSession(session,Boolean(localStorage.getItem(sessionKey)));
   }
   return session;
+}
+
+export async function currentPddEmployeeEmail(session:PddSession){
+  const saved=session.user?.email?.trim().toLowerCase();
+  if(saved)return saved;
+  const response=await pddAuthFetch("/auth/v1/user",{headers:{Authorization:`Bearer ${session.access_token}`}});
+  if(!response.ok)return "";
+  const user=await response.json() as {email?:string};
+  return user.email?.trim().toLowerCase()||"";
 }

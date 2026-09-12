@@ -1,6 +1,6 @@
 import InquiryForm from "@/components/InquiryForm";
 import {Shell} from "@/components/SiteShell";
-export const metadata={title:"Sell RAM, SSDs, GPUs & Apple Equipment",description:"Sell computer memory, SSDs, GPUs, MacBooks, iMacs and Apple equipment through R2v3 and ISO-certified technology recovery operations."};
+export const metadata={title:"Sell RAM, SSDs, GPUs & Apple Equipment",description:"Sell computer memory, SSDs, GPUs, MacBooks, iMacs and Apple equipment through R2v3 and ISO-certified technology recovery operations.",alternates:{canonical:"/sell-ram-ssds-gpus-apple"}};
 const categories=[
  ["RAM & Memory","DDR3, DDR4 and DDR5 DIMMs, SODIMMs, ECC memory, RDIMMs and server memory. Include manufacturer, part number, capacity, speed and quantity."],
  ["SSDs & Storage","SATA SSDs, NVMe drives, enterprise SSDs and storage components. New, used, tested and clearly identified untested inventory is considered."],

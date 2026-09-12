@@ -1,0 +1,9 @@
+import {env} from "cloudflare:workers";
+import {employeeUser} from "../../../lib/employee-server";
+
+const types=new Set(["vendor","customer"]),statuses=new Set(["new","contacted","qualified","opportunity","awaiting_response","submitted_request","vendor_approved","customer","researching"]);
+const key=(recordType:string,recordId:string)=>`${recordType}:${recordId}`;
+
+export async function GET(request:Request){const employee=await employeeUser(request);if(!employee)return Response.json({error:"Employee access required."},{status:401});const url=new URL(request.url),recordType=url.searchParams.get("recordType")||"",recordId=url.searchParams.get("recordId")||"";if(!types.has(recordType)||!recordId)return Response.json({error:"A valid business record is required."},{status:400});const row=await env.DB.prepare("SELECT status FROM business_record_statuses WHERE id=?").bind(key(recordType,recordId)).first<{status:string}>();return Response.json({status:row?.status||"new"},{headers:{"cache-control":"private, no-store"}})}
+
+export async function PUT(request:Request){const employee=await employeeUser(request);if(!employee)return Response.json({error:"Employee access required."},{status:401});const body=await request.json().catch(()=>({})) as {recordType?:string;recordId?:string;status?:string},recordType=String(body.recordType||""),recordId=String(body.recordId||"").trim(),status=String(body.status||"");if(!types.has(recordType)||!recordId||!statuses.has(status))return Response.json({error:"Choose a valid status."},{status:400});const now=new Date().toISOString();await env.DB.prepare("INSERT INTO business_record_statuses (id,record_type,record_id,status,updated_by,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(key(recordType,recordId),recordType,recordId,status,employee.email,now).run();return Response.json({status,updatedAt:now})}

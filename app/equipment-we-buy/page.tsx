@@ -1,13 +1,147 @@
-import Link from "next/link";import {PageHero,Shell} from "@/components/SiteShell";
-export const metadata={title:"Used Computers & IT Equipment We Buy",description:"Sell Apple computers, laptops, servers, storage, networking hardware, memory, SSDs, CPUs, GPUs and wholesale technology lots."};
-const cats=[
-  ["Apple","MacBooks, iMacs, Mac minis, displays, service parts and accessories.","/assets/equipment-apple.webp","Apple computers, displays and service parts organized for evaluation"],
-  ["Servers","Rack and tower systems, processors, memory, storage, power and server components.","/assets/equipment-servers.webp","Rack servers and enterprise components in a professional warehouse"],
-  ["AI hardware","GPUs, accelerators, AI servers, NVLink equipment and data-center components.","/assets/equipment-ai-hardware.webp","Data-center GPUs, accelerator cards and AI servers arranged for resale"],
-  ["Memory & storage","DDR3 through DDR5 memory, enterprise SSDs, NVMe and storage hardware.","/assets/equipment-memory-storage.webp","Memory modules, enterprise SSDs and NVMe drives on an evaluation bench"],
-  ["Networking","Switches, routers, adapters, optics and related enterprise equipment.","/assets/equipment-networking.webp","Enterprise switches, routers, optics and network equipment"],
-  ["Business systems","Chromebooks, laptops, desktops, POS systems and deployable business hardware.","/assets/equipment-business-systems.webp","Business laptops, desktops and point-of-sale systems prepared for resale"],
-  ["Specialized equipment","Medical, laboratory, test, aviation and industrial technology reviewed case by case.","/assets/equipment-specialized.webp","Specialized medical, laboratory, test and industrial technology"],
-  ["Mixed & surplus lots","Overstock, project leftovers, retired fleets and technology liquidation inventories.","/assets/equipment-mixed-surplus.webp","Organized pallets and shelving of mixed surplus technology inventory"],
+import Link from "next/link";
+import { PageHero, Shell } from "@/components/SiteShell";
+export const metadata = {
+  title: "Used Computers & IT Equipment We Buy",
+  description:
+    "Sell Apple computers, laptops, servers, storage, networking hardware, memory, SSDs, CPUs, GPUs and wholesale technology lots.",
+  alternates: { canonical: "/equipment-we-buy" },
+};
+const cats = [
+  [
+    "Apple",
+    "MacBooks, iMacs, Mac minis, displays, service parts and accessories.",
+    "/assets/equipment-apple.webp",
+    "Apple computers, displays and service parts organized for evaluation",
+  ],
+  [
+    "Servers",
+    "Rack and tower systems, processors, memory, storage, power and server components.",
+    "/assets/equipment-servers.webp",
+    "Rack servers and enterprise components in a professional warehouse",
+  ],
+  [
+    "AI hardware",
+    "GPUs, accelerators, AI servers, NVLink equipment and data-center components.",
+    "/assets/equipment-ai-hardware.webp",
+    "Data-center GPUs, accelerator cards and AI servers arranged for resale",
+  ],
+  [
+    "Memory & storage",
+    "DDR3 through DDR5 memory, enterprise SSDs, NVMe and storage hardware.",
+    "/assets/equipment-memory-storage.webp",
+    "Memory modules, enterprise SSDs and NVMe drives on an evaluation bench",
+  ],
+  [
+    "Networking",
+    "Switches, routers, adapters, optics and related enterprise equipment.",
+    "/assets/equipment-networking.webp",
+    "Enterprise switches, routers, optics and network equipment",
+  ],
+  [
+    "Business systems",
+    "Chromebooks, laptops, desktops, POS systems and deployable business hardware.",
+    "/assets/equipment-business-systems.webp",
+    "Business laptops, desktops and point-of-sale systems prepared for resale",
+  ],
+  [
+    "Specialized equipment",
+    "Medical, laboratory, test, aviation and industrial technology reviewed case by case.",
+    "/assets/equipment-specialized.webp",
+    "Specialized medical, laboratory, test and industrial technology",
+  ],
+  [
+    "Mixed & surplus lots",
+    "Overstock, project leftovers, retired fleets and technology liquidation inventories.",
+    "/assets/equipment-mixed-surplus.webp",
+    "Organized pallets and shelving of mixed surplus technology inventory",
+  ],
 ];
-export default function Page(){return <Shell><PageHero eyebrow="Broad technology coverage" title="Equipment We Buy" intro="Mac2MacOnline evaluates current, legacy and specialized technology. Clear part numbers, quantities and condition details help us respond quickly."/><section className="wrap catalog equipment-catalog">{cats.map(([title,description,image,alt])=><article key={title}><img src={image} alt={alt}/><div><h2>{title}</h2><p>{description}</p></div></article>)}</section><section className="equipmentGuide"><div className="wrap"><div><span className="eyebrow">RAM &amp; SSD SELLER GUIDE</span><h2>Have server memory or storage to sell?</h2><p>Learn which part numbers, specifications, quantities and condition details help us evaluate a lot.</p></div><Link className="button secondary" href="/insights/where-to-sell-used-server-ram-and-ssds-in-bulk">Read the guide →</Link></div></section><section className="cta"><div className="wrap"><div><h2>Selling RAM, SSDs, GPUs or Apple equipment?</h2><p>Use our focused submission page for end users and business inventories.</p></div><Link className="button light" href="/sell-ram-ssds-gpus-apple">Sell Parts &amp; Apple Equipment</Link></div></section></Shell>}
+export default function Page() {
+  return (
+    <Shell>
+      <section className="equipmentBuyAlert">
+        <div className="wrap">
+          <div>
+            <span>WE ARE ACTIVELY BUYING</span>
+            <h1>RAM, SSDs &amp; GPUs—Any Condition.</h1>
+            <p>New, used, tested, untested or mixed lots. Send your inventory list now for a fast review.</p>
+          </div>
+          <Link className="button" href="/sell-ram-ssds-gpus-apple#inventory-form">
+            Send Your List Now →
+          </Link>
+        </div>
+      </section>
+      <PageHero
+        eyebrow="Broad technology coverage"
+        title="Equipment We Buy"
+        intro="Mac2MacOnline evaluates current, legacy and specialized technology. Clear part numbers, quantities and condition details help us respond quickly."
+      />
+      <section className="wrap catalog equipment-catalog">
+        {cats.map(([title, description, image, alt]) => (
+          <article key={title}>
+            <img src={image} alt={alt} />
+            <div>
+              <h2>{title}</h2>
+              <p>{description}</p>
+            </div>
+          </article>
+        ))}
+      </section>
+      <section
+        className="wrap ramSsdCategoryLinks"
+        aria-label="Specialized equipment services"
+      >
+        <Link href="/sell-used-servers-networking">
+          Sell servers &amp; networking →
+        </Link>
+        <Link href="/sell-used-cpus-processors">
+          Sell CPUs &amp; processors →
+        </Link>
+        <Link href="/sell-optical-transceivers-network-components">
+          Sell optical transceivers →
+        </Link>
+        <Link href="/sell-business-laptops-desktops-workstations">
+          Sell business computer fleets →
+        </Link>
+        <Link href="/itad-chico-northern-california">
+          Northern California ITAD →
+        </Link>
+        <Link href="/r2v3-electronics-recycling">
+          R2v3 electronics recycling →
+        </Link>
+      </section>
+      <section className="equipmentGuide">
+        <div className="wrap">
+          <div>
+            <span className="eyebrow">RAM &amp; SSD SELLER GUIDE</span>
+            <h2>Have server memory or storage to sell?</h2>
+            <p>
+              Learn which part numbers, specifications, quantities and condition
+              details help us evaluate a lot.
+            </p>
+          </div>
+          <Link
+            className="button secondary"
+            href="/insights/where-to-sell-used-server-ram-and-ssds-in-bulk"
+          >
+            Read the guide →
+          </Link>
+        </div>
+      </section>
+      <section className="cta">
+        <div className="wrap">
+          <div>
+            <h2>Selling RAM, SSDs, GPUs or Apple equipment?</h2>
+            <p>
+              Use our focused submission page for end users and business
+              inventories.
+            </p>
+          </div>
+          <Link className="button light" href="/sell-ram-ssds-gpus-apple">
+            Sell Parts &amp; Apple Equipment
+          </Link>
+        </div>
+      </section>
+    </Shell>
+  );
+}

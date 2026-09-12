@@ -52,3 +52,61 @@
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.pricingTable .boxBidGroupHeader td{
+  padding:10px 12px;
+  border-top:2px solid #17466f;
+  border-bottom:1px solid #8fb5d0;
+  background:#dcecf7;
+  color:#0d2e4c;
+}
+.boxBidGroupTitle{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.boxBidGroupTitle strong{
+  font-size:1rem;
+}
+.boxBidGroupTitle span{
+  color:#496a82;
+  font-weight:800;
+}
+.boxBidGroupTitle b{
+  margin-left:auto;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#e8eef2;
+  color:#536b7b;
+  font-size:.7rem;
+  text-transform:uppercase;
+}
+.boxBidGroupTitle b.complete{
+  background:#d5f2df;
+  color:#17633a;
+}
+.boxBidGroupTitle b.incomplete{
+  background:#fff0cc;
+  color:#8a5600;
+}
+.pricingTable .boxBidSubtotal td{
+  padding-top:11px;
+  padding-bottom:11px;
+  border-top:1px solid #aac5d8;
+  border-bottom:3px solid #17466f;
+  background:#eef5f9;
+  color:#173a55;
+  font-weight:900;
+  text-align:right;
+}
+.pricingTable .boxBidSubtotal .bidSticky{
+  background:#eef5f9;
+}
+.boxBidWarning{
+  margin:0 0 18px;
+  padding:11px 14px;
+  border:1px solid #e8c773;
+  border-radius:10px;
+  background:#fff7df;
+  color:#785000;
+  font-weight:850;
+}

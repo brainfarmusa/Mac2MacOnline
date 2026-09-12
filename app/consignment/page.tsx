@@ -1,6 +1,6 @@
 import {PageHero,Shell} from "@/components/SiteShell";
 import InquiryForm from "@/components/InquiryForm";
-export const metadata={title:"Computer & IT Equipment Consignment",description:"Consign used computers, servers, networking equipment and enterprise IT inventory through Mac2MacOnline's market-led resale process."};
+export const metadata={title:"Computer & IT Equipment Consignment",description:"Consign used computers, servers, networking equipment and enterprise IT inventory through Mac2MacOnline's market-led resale process.",alternates:{canonical:"/consignment"}};
 
 const steps=[
   ["Evaluate","We review the equipment, condition, documentation, market demand and likely selling range.","/assets/m2m-consign-evaluate-v4.png","Professional evaluating warehouse equipment with an android following closely behind"],

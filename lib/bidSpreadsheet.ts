@@ -1,131 +1,1020 @@
-import {strToU8,unzipSync,zipSync} from "fflate";
+import { strToU8, unzipSync, zipSync } from "fflate";
 
-export type BidSheetColumn={header:string;value:(rowIndex:number)=>string|number};
-export type ImportedBidRow={lineId:string;unitBid:string;comments:string};
+export type BidSheetColumn = {
+  header: string;
+  value: (rowIndex: number) => string | number;
+};
+export type ImportedBidRow = {
+  lineId: string;
+  unitBid: string;
+  comments: string;
+};
+export type BidSpreadsheetOptions = {
+  awardMode?: "single" | "multiple";
+};
 
-const xmlEscape=(value:string|number)=>String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-const columnName=(index:number)=>{let value=index+1,result="";while(value){value--;result=String.fromCharCode(65+(value%26))+result;value=Math.floor(value/26)}return result};
-const inlineCell=(reference:string,value:string|number,style:number)=>typeof value==="number"?`<c r="${reference}" s="${style}"><v>${value}</v></c>`:`<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
-
-function displayBidName(dealNumber:string,assignedFileName?:string){return(assignedFileName?.trim()||`${dealNumber}-Customer-Bid.xlsx`).replace(/\.xlsx$/i,"").replace(/[-_]+/g," ").replace(/\s+/g," ").trim()}
-function createLotNotes(rowCount:number,columns:BidSheetColumn[]){const priority=/storage|capacity|size|condition|grade|health|test|status|notes?|comments?|description|type/i,candidates=columns.filter(column=>column.header!=="Qty"&&priority.test(column.header)),selected=(candidates.length?candidates:columns.filter(column=>column.header!=="Qty").slice(0,3)).slice(0,5),details=selected.map(column=>{const values=[...new Set(Array.from({length:rowCount},(_,index)=>String(column.value(index)||"").trim()).filter(Boolean))].slice(0,6);return values.length?`${column.header.toUpperCase()}: ${values.join(", ")}`:""}).filter(Boolean);return`LOT NOTES: ${details.join(" · ")||`${rowCount.toLocaleString()} bid lines; review item details below.`}`}
-
-function safeTabName(raw:string,used:Set<string>){
-  const forbidden="\\/:*?\"<>|";
-  const cleaned=raw.split("").map(char=>forbidden.includes(char)?" ":char).join("").replace(/\s+/g," ").trim()||"Lot";
-  const base=cleaned.slice(0,31);let name=base,suffix=2;
-  while(used.has(name)){const ending=` ${suffix++}`;name=`${base.slice(0,31-ending.length)}${ending}`}
-  used.add(name);return name;
-}
-
-async function downloadTabbedBidSpreadsheet(dealNumber:string,rowCount:number,columns:BidSheetColumn[],assignedFileName?:string){
-  const XLSX=await import("@e965/xlsx");
-  const source=columns.find(column=>column.header==="Source Tab");
-  const qty=columns.find(column=>column.header==="Qty")||{header:"Qty",value:()=>1};
-  const details=columns.filter(column=>column!==source&&column!==qty);
-  const groups=new Map<string,number[]>();
-  for(let index=0;index<rowCount;index++){const name=String(source?.value(index)||"Customer Bid").trim()||"Customer Bid";groups.set(name,[...(groups.get(name)||[]),index])}
-  const workbook=XLSX.utils.book_new(),used=new Set<string>();
-  const summaryRows:(string|number)[][]=[["Lot","Bid Lines","Quantity","Bid Subtotal"]];
-  const summaryFormulas:string[]=[];
-  for(const [rawName,indexes] of groups){
-    const name=safeTabName(rawName,used),headers=["Line",...details.map(column=>column.header),"Bid Comments","Qty","Unit Bid","Total Bid"];
-    const rows=indexes.map(index=>[index+1,...details.map(column=>column.value(index)),"",qty.value(index),"",""]);
-    const sheet=XLSX.utils.aoa_to_sheet([headers,...rows,["LOT TOTAL"]]);
-    const qtyColumn=columnName(headers.indexOf("Qty")),bidColumn=columnName(headers.indexOf("Unit Bid")),totalColumn=columnName(headers.indexOf("Total Bid"));
-    indexes.forEach((_,offset)=>{const row=offset+2;sheet[`${totalColumn}${row}`]={t:"n",f:`IF(${bidColumn}${row}=\"\",\"\",${qtyColumn}${row}*${bidColumn}${row})`,z:"$#,##0.00"}});
-    const totalRow=indexes.length+2;sheet[`A${totalRow}`]={t:"s",v:"LOT TOTAL"};sheet[`${qtyColumn}${totalRow}`]={t:"n",f:`SUM(${qtyColumn}2:${qtyColumn}${totalRow-1})`,z:"#,##0"};sheet[`${totalColumn}${totalRow}`]={t:"n",f:`SUM(${totalColumn}2:${totalColumn}${totalRow-1})`,z:"$#,##0.00"};
-    sheet["!cols"]=headers.map(header=>({wch:header.includes("Comments")?28:Math.max(10,Math.min(24,header.length+3))}));sheet["!autofilter"]={ref:`A1:${totalColumn}${totalRow-1}`};sheet["!freeze"]={xSplit:0,ySplit:1,topLeftCell:"A2",activePane:"bottomLeft",state:"frozen"};
-    XLSX.utils.book_append_sheet(workbook,sheet,name);summaryRows.push([rawName,indexes.length,indexes.reduce((sum,index)=>sum+Number(qty.value(index)||0),0),""]);summaryFormulas.push(`'${name.replace(/'/g,"''")}'!${totalColumn}${totalRow}`);
+const xmlEscape = (value: string | number) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+const columnName = (index: number) => {
+  let value = index + 1,
+    result = "";
+  while (value) {
+    value--;
+    result = String.fromCharCode(65 + (value % 26)) + result;
+    value = Math.floor(value / 26);
   }
-  summaryRows.push(["GRAND TOTAL","","",""]);const summary=XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryFormulas.forEach((formula,index)=>{summary[`D${index+2}`]={t:"n",f:formula,z:"$#,##0.00"}});summary[`D${summaryRows.length}`]={t:"n",f:`SUM(D2:D${summaryRows.length-1})`,z:"$#,##0.00"};summary["!cols"]=[{wch:31},{wch:12},{wch:14},{wch:18}];
-  XLSX.utils.book_append_sheet(workbook,summary,"Bid Summary");XLSX.writeFile(workbook,assignedFileName?.trim()||`${dealNumber}-Customer-Bid.xlsx`,{compression:true});
+  return result;
+};
+const bidColumnWidth = (header: string, values: Array<string | number> = []) => {
+  const name = header.trim().toLowerCase(),
+    longest = Math.max(header.length, ...values.map((value) => String(value ?? "").length)),
+    between = (minimum: number, maximum: number) =>
+      Math.max(minimum, Math.min(maximum, longest + 2));
+  if (name === "line") return 9;
+  if (/description|configuration|specification|details/.test(name))
+    return between(38, 58);
+  if (/comments?|notes?/.test(name)) return between(30, 42);
+  if (/item name|part|model|sku|product/.test(name)) return between(22, 34);
+  if (/^(qty|quantity)$/.test(name)) return 12;
+  if (/unit bid|total bid|price|cost|amount/.test(name)) return 16;
+  return between(14, 30);
+};
+const inlineCell = (
+  reference: string,
+  value: string | number,
+  style: number,
+) =>
+  typeof value === "number"
+    ? `<c r="${reference}" s="${style}"><v>${value}</v></c>`
+    : `<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+
+function displayBidName(dealNumber: string, assignedFileName?: string) {
+  return (assignedFileName?.trim() || `${dealNumber}-Customer-Bid.xlsx`)
+    .replace(/\.xlsx$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+const compactLotValue = (value: string) =>
+  value
+    .replace(/\s+/g, " ")
+    .replace(/\s*[|;]+\s*/g, " · ")
+    .trim()
+    .slice(0, 82)
+    .replace(/[,:;·\s]+$/g, "");
+const isBoxHeader = (header: string) =>
+  /^(?:(?:box|lot|container)(?:\s*(?:#|number|no\.?))?)$/i.test(
+    header.trim(),
+  );
+
+// Keep every customer-facing deal workbook in the same predictable order.
+// Unrecognized equipment-specific fields remain in their original order in
+// the middle of the sheet, before notes, grade, quantity and pricing.
+function orderDealColumns(columns: BidSheetColumn[]) {
+  const normalized = (header: string) =>
+    header.trim().toLowerCase().replace(/[._-]+/g, " ").replace(/\s+/g, " ");
+  const rank = (header: string) => {
+    const name = normalized(header);
+    if (/^(mfg|manufacturer|brand|make)$/.test(name)) return 10;
+    if (/^(model|model number|model no|model #)$/.test(name)) return 20;
+    if (/^(part number|part no|part #|pn|p n|mpn|manufacturer part number)$/.test(name)) return 30;
+    if (/^(description|item description|product description|configuration|config)$/.test(name)) return 40;
+    if (/^(ram|memory|memory size|ram size|memory capacity)$/.test(name)) return 50;
+    if (/^(cpu|processor|processor type|cpu model)$/.test(name)) return 60;
+    if (/^(ssd|hdd|ssd hdd|hdd ssd|storage|drive|drive type|storage capacity)$/.test(name)) return 70;
+    if (/comments?|notes?|remarks?/.test(name)) return 900;
+    if (/^(grade|condition|cosmetic grade|functional grade)$/.test(name)) return 910;
+    return 100;
+  };
+  return columns
+    .map((column, index) => ({ column, index, rank: rank(column.header) }))
+    .sort((left, right) => left.rank - right.rank || left.index - right.index)
+    .map(({ column }) => column);
 }
 
-export function downloadBidSpreadsheet(dealNumber:string,rowCount:number,columns:BidSheetColumn[],assignedFileName?:string){
-  if(columns.some(column=>column.header==="Source Tab")){void downloadTabbedBidSpreadsheet(dealNumber,rowCount,columns,assignedFileName);return}
-  const qtyIndex=columns.findIndex(column=>column.header==="Qty");
-  const qtyColumn=qtyIndex>=0?columns[qtyIndex]:{header:"Qty",value:()=>1};
-  const detailColumns=columns.filter((_,index)=>index!==qtyIndex);
-  const headers=["Line",...detailColumns.map(column=>column.header),"Bid Comments","Qty","Unit Bid","Total Bid"];
-  const tableRows=Array.from({length:rowCount},(_,index)=>([
-    index+1,
-    ...detailColumns.map(column=>column.value(index)),
+const isGradeColumn = (column: BidSheetColumn) =>
+  /^(?:grade|condition|cosmetic grade|functional grade)$/i.test(
+    column.header.trim(),
+  );
+type BidRowPlanEntry =
+  | { kind: "data"; sourceIndex: number; dataIndex: number }
+  | { kind: "subtotal"; sourceIndexes: number[] };
+
+const manufacturerColumn = (columns: BidSheetColumn[]) =>
+  columns.find((column) =>
+    /^(?:manufacturer|mfg|brand)$/i.test(column.header.trim()),
+  );
+
+const modelColumn = (columns: BidSheetColumn[]) =>
+  columns.find((column) =>
+    /^(?:model|model number|model no\.?|model #)$/i.test(column.header.trim()),
+  );
+
+function sortIndexesByManufacturerAndModel(
+  sourceIndexes: number[],
+  columns: BidSheetColumn[],
+  awardMode: "single" | "multiple" = "single",
+) {
+  const manufacturer = manufacturerColumn(columns);
+  const model = modelColumn(columns);
+  if (!manufacturer && !model) return [...sourceIndexes];
+  const compare = (left: number, right: number) => {
+    const leftBrand = String(manufacturer?.value(left) ?? "").trim();
+    const rightBrand = String(manufacturer?.value(right) ?? "").trim();
+    if (!leftBrand && rightBrand) return 1;
+    if (leftBrand && !rightBrand) return -1;
+    const brandOrder = leftBrand.localeCompare(rightBrand, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    if (brandOrder) return brandOrder;
+    const leftModel = String(model?.value(left) ?? "").trim();
+    const rightModel = String(model?.value(right) ?? "").trim();
+    if (!leftModel && rightModel) return 1;
+    if (leftModel && !rightModel) return -1;
+    return leftModel.localeCompare(rightModel, undefined, {
+      sensitivity: "base",
+      numeric: true,
+    }) || left - right;
+  };
+  const box = awardMode === "multiple"
+    ? columns.find((column) => isBoxHeader(column.header))
+    : undefined;
+  if (!box) return [...sourceIndexes].sort(compare);
+
+  const groups: number[][] = [];
+  let current: number[] = [];
+  let currentBox = "";
+  for (const sourceIndex of sourceIndexes) {
+    const explicitBox = String(box.value(sourceIndex) ?? "").trim();
+    if (explicitBox && current.length && explicitBox !== currentBox) {
+      groups.push(current);
+      current = [];
+    }
+    if (explicitBox) currentBox = explicitBox;
+    current.push(sourceIndex);
+  }
+  if (current.length) groups.push(current);
+  return groups.flatMap((group) => {
+    const everyRowNamesBox = group.every((index) =>
+      String(box.value(index) ?? "").trim(),
+    );
+    return everyRowNamesBox
+      ? [...group].sort(compare)
+      : [group[0], ...group.slice(1).sort(compare)];
+  });
+}
+
+function createBidRowPlan(
+  sourceIndexes: number[],
+  boxColumn: BidSheetColumn | undefined,
+  awardMode: "single" | "multiple",
+): BidRowPlanEntry[] {
+  if (awardMode !== "multiple")
+    return sourceIndexes.map((sourceIndex, dataIndex) => ({
+      kind: "data" as const,
+      sourceIndex,
+      dataIndex,
+    }));
+
+  const plan: BidRowPlanEntry[] = [];
+  let currentBox = "";
+  let groupKey = "";
+  let groupIndexes: number[] = [];
+  const finishGroup = () => {
+    if (groupIndexes.length)
+      plan.push({ kind: "subtotal", sourceIndexes: groupIndexes });
+    groupIndexes = [];
+  };
+
+  sourceIndexes.forEach((sourceIndex, dataIndex) => {
+    const explicitBox = String(boxColumn?.value(sourceIndex) || "").trim();
+    if (explicitBox) currentBox = explicitBox;
+    const nextGroupKey = boxColumn
+      ? currentBox || `Unassigned ${sourceIndex + 1}`
+      : `Line ${sourceIndex + 1}`;
+    if (groupKey && nextGroupKey !== groupKey) finishGroup();
+    groupKey = nextGroupKey;
+    plan.push({ kind: "data", sourceIndex, dataIndex });
+    groupIndexes.push(sourceIndex);
+  });
+  finishGroup();
+  return plan;
+}
+
+/** Build the same short, quantity-weighted lot summary used by the bid sheet and PDD. */
+export function buildLotNotes(rowCount: number, columns: BidSheetColumn[]) {
+  const qty = columns.find((column) =>
+    /^(qty|quantity|units?)$/i.test(column.header.trim()),
+  );
+  const detail =
+    columns.find((column) =>
+      /^(description|configuration|config|product|item description|model description)$/i.test(
+        column.header.trim(),
+      ),
+    ) ||
+    columns.find((column) =>
+      /description|configuration|product|model/i.test(column.header),
+    );
+  const grade = columns.find((column) =>
+    /^(grade|condition)$/i.test(column.header.trim()),
+  );
+  const manufacturer = columns.find((column) =>
+    /^(manufacturer|mfg|make|brand)$/i.test(column.header.trim()),
+  );
+  const weighted = (column: BidSheetColumn) => {
+    const totals = new Map<string, number>();
+    for (let index = 0; index < rowCount; index++) {
+      const value = compactLotValue(String(column.value(index) || ""));
+      if (!value) continue;
+      const amount = Math.max(1, Number(qty?.value(index)) || 1);
+      totals.set(value, (totals.get(value) || 0) + amount);
+    }
+    return [...totals].sort((a, b) => b[1] - a[1]);
+  };
+  const rowText = (index: number) =>
+    columns.map((column) => String(column.value(index) || "")).join(" ");
+  const rankedBrands = manufacturer ? weighted(manufacturer) : [];
+  const brandSummary = rankedBrands.length
+    ? `Brands: ${rankedBrands
+        .slice(0, 4)
+        .map(([name, amount]) => `${name} (${amount.toLocaleString()})`)
+        .join(", ")}${rankedBrands.length > 4 ? ` +${rankedBrands.length - 4} more` : ""}`
+    : "";
+  const ipadRows = Array.from({ length: rowCount }, (_, index) => index).filter(
+    (index) => /\bipad\b/i.test(rowText(index)),
+  );
+  if (ipadRows.length && ipadRows.length >= rowCount * 0.7) {
+    const families = new Map<string, number>();
+    const grades = new Map<string, number>();
+    const capacities: number[] = [];
+    let unlocked = 0;
+    let scuffed = 0;
+    for (const index of ipadRows) {
+      const text = rowText(index);
+      const amount = Math.max(1, Number(qty?.value(index)) || 1);
+      const generation = text.match(
+        /\b(iPad(?: Air| mini)?)\s*\((\d+)(?:st|nd|rd|th) generation\)/i,
+      );
+      if (generation) {
+        const family = generation[1]
+          .replace(/ipad mini/i, "iPad mini")
+          .replace(/ipad air/i, "iPad Air")
+          .replace(/^ipad$/i, "iPad");
+        const key = `${family} ${generation[2]}${Number(generation[2]) === 1 ? "st" : Number(generation[2]) === 2 ? "nd" : Number(generation[2]) === 3 ? "rd" : "th"} Gen`;
+        families.set(key, (families.get(key) || 0) + amount);
+      }
+      const gradeValue = text.match(/\bGrade\s*([A-D])\b/i)?.[1] ||
+        columns.find((column) => /^grade$/i.test(column.header.trim()))?.value(index);
+      if (gradeValue) {
+        const key = `Grade ${String(gradeValue).toUpperCase().replace(/^GRADE\s*/i, "")}`;
+        grades.set(key, (grades.get(key) || 0) + amount);
+      }
+      for (const match of text.matchAll(/\b(\d{1,4})\s*(?:GB|G)\b/gi))
+        capacities.push(Number(match[1]));
+      for (const column of columns) {
+        if (!/^(?:hdd|ssd|storage|capacity)$/i.test(column.header.trim())) continue;
+        const value = String(column.value(index) || "").trim();
+        if (/^\d{1,4}$/.test(value)) capacities.push(Number(value));
+      }
+      if (/\bunlocked\b/i.test(text)) unlocked += amount;
+      if (/scuff(?:ed|s|ing)?\s+screen/i.test(text)) scuffed += amount;
+    }
+    const ranked = [...families].sort((a, b) => b[1] - a[1]);
+    const leaders = ranked.slice(0, 3).map(([name, amount]) => `${name} (${amount})`);
+    const remainderNames = ranked.slice(3).map(([name]) => name);
+    const compactRemainder = ["iPad", "iPad Air", "iPad mini"]
+      .map((family) => {
+        const generations = remainderNames
+          .map((name) => name.match(new RegExp(`^${family} (\\d+)(?:st|nd|rd|th) Gen$`, "i"))?.[1])
+          .filter(Boolean);
+        return generations.length
+          ? `${family} ${generations.join("/")} Gen`
+          : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+    const gradeSummary = [...grades]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, amount]) => `${amount} ${name}`)
+      .join(" / ");
+    const capacitySummary = capacities.length
+      ? `${Math.min(...capacities)}GB–${Math.max(...capacities)}GB`
+      : "";
+    return [
+      brandSummary,
+      `Primarily ${leaders.join(", ")}`,
+      compactRemainder ? `plus ${compactRemainder}` : "",
+      capacitySummary,
+      gradeSummary,
+      unlocked ? "unlocked" : "",
+      scuffed ? "some scuffed screens" : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  const ignoredSummaryHeader =
+    /^(?:line|row|qty|quantity|units?|source tab|inventory(?: id| number| tag)?|asset(?: id| tag)?|serial(?: number)?|barcode|location|warehouse|price|unit (?:price|bid)|total|extended(?: price)?|comments?|notes?)$/i;
+  const summaryPriority = (header: string) => {
+    const value = header.trim();
+    if (/^(?:description|item description|product description)$/i.test(value)) return 100;
+    if (/^(?:product|item|configuration|config)$/i.test(value)) return 90;
+    if (/^(?:model|model number|part number|mpn|sku)$/i.test(value)) return 80;
+    if (/^(?:manufacturer|mfg|brand)$/i.test(value)) return 70;
+    if (/cpu|processor|ram|memory|storage|drive|capacity|screen|generation/i.test(value)) return 60;
+    return ignoredSummaryHeader.test(value) || /^(?:grade|condition)$/i.test(value)
+      ? 0
+      : 20;
+  };
+  const informative = columns
+    .filter((column) => column !== manufacturer && summaryPriority(column.header) > 0)
+    .sort((a, b) => summaryPriority(b.header) - summaryPriority(a.header));
+  const summaries = new Map<string, number>();
+  for (let index = 0; index < rowCount; index++) {
+    const values: string[] = [];
+    for (const column of informative) {
+      const value = compactLotValue(String(column.value(index) || ""));
+      if (!value || values.some((current) => current.toLowerCase() === value.toLowerCase()))
+        continue;
+      values.push(value);
+      if (values.length >= 4 || values.join(" · ").length >= 120) break;
+    }
+    const summary = compactLotValue(values.join(" · "));
+    if (!summary) continue;
+    const amount = Math.max(1, Number(qty?.value(index)) || 1);
+    summaries.set(summary, (summaries.get(summary) || 0) + amount);
+  }
+  const details = [...summaries].sort((a, b) => b[1] - a[1]);
+  const total = details.reduce((sum, item) => sum + item[1], 0);
+  const leaders: string[] = [];
+  let represented = 0;
+  for (const [value, amount] of details) {
+    if (leaders.length >= 3) break;
+    leaders.push(value);
+    represented += amount;
+    if (leaders.length >= 2 && represented >= total * 0.7) break;
+  }
+  const dominantGrade = grade ? weighted(grade)[0]?.[0] : "";
+  const fallback = informative[0] || detail;
+  const fallbackValue = fallback ? weighted(fallback)[0]?.[0] : "";
+  return [
+    brandSummary,
+    dominantGrade && `${dominantGrade} condition`,
+    leaders.join(" • ") ||
+      fallbackValue ||
+      `${rowCount.toLocaleString()} bid lines`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function safeTabName(raw: string, used: Set<string>) {
+  const forbidden = '\\/:*?"<>|';
+  const cleaned =
+    raw
+      .split("")
+      .map((char) => (forbidden.includes(char) ? " " : char))
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim() || "Lot";
+  const base = cleaned.slice(0, 31);
+  let name = base,
+    suffix = 2;
+  while (used.has(name)) {
+    const ending = ` ${suffix++}`;
+    name = `${base.slice(0, 31 - ending.length)}${ending}`;
+  }
+  used.add(name);
+  return name;
+}
+
+async function downloadTabbedBidSpreadsheet(
+  dealNumber: string,
+  rowCount: number,
+  columns: BidSheetColumn[],
+  assignedFileName?: string,
+  options: BidSpreadsheetOptions = {},
+) {
+  const XLSX = await import("@e965/xlsx");
+  const source = columns.find((column) => column.header === "Source Tab");
+  const qty = columns.find((column) => column.header === "Qty") || {
+    header: "Qty",
+    value: () => 1,
+  };
+  const details = orderDealColumns(
+    columns.filter((column) => column !== source && column !== qty),
+  );
+  const gradeDetails = details.filter(isGradeColumn);
+  const mainDetails = details.filter((column) => !isGradeColumn(column));
+  const groups = new Map<string, number[]>();
+  for (let index = 0; index < rowCount; index++) {
+    const name =
+      String(source?.value(index) || "Customer Bid").trim() || "Customer Bid";
+    groups.set(name, [...(groups.get(name) || []), index]);
+  }
+  const workbook = XLSX.utils.book_new(),
+    used = new Set<string>();
+  const summaryRows: (string | number)[][] = [
+    ["Lot", "Bid Lines", "Quantity", "Bid Subtotal"],
+  ];
+  const summaryFormulas: string[] = [];
+  for (const [rawName, unsortedIndexes] of groups) {
+    const indexes = sortIndexesByManufacturerAndModel(
+      unsortedIndexes,
+      details,
+      options.awardMode || "single",
+    );
+    const name = safeTabName(rawName, used),
+      headers = [
+        "Line",
+        ...mainDetails.map((column) => column.header),
+        "Bid Comments",
+        ...gradeDetails.map((column) => column.header),
+        "Qty",
+        "Unit Bid",
+        "Total Bid",
+      ];
+    const rowPlan = createBidRowPlan(
+      indexes,
+      details.find((column) => isBoxHeader(column.header)),
+      options.awardMode || "single",
+    );
+    // Multiple-award generation only inserts subtotal rows. Source values are
+    // copied into data rows without filling, normalizing, or replacing cells.
+    const rows = rowPlan.map((entry) =>
+      entry.kind === "data"
+        ? [
+            "",
+            entry.sourceIndex + 1,
+            ...mainDetails.map((column) => column.value(entry.sourceIndex)),
+            "",
+            ...gradeDetails.map((column) => column.value(entry.sourceIndex)),
+            qty.value(entry.sourceIndex),
+            "",
+            "",
+          ]
+        : [
+            "",
+            "",
+            ...mainDetails.map(() => ""),
+            "",
+            ...gradeDetails.map(() => ""),
+            "",
+            "Total",
+            "",
+          ],
+    );
+    const groupColumns = columns
+      .filter((column) => column !== source)
+      .map((column) => ({
+        header: column.header,
+        value: (offset: number) => column.value(indexes[offset]),
+      }));
+    const sheet = XLSX.utils.aoa_to_sheet([
+      [""],
+      ["", displayBidName(dealNumber, assignedFileName)],
+      ["", `LOT NOTES: ${buildLotNotes(indexes.length, groupColumns)}`],
+      ["", ...headers],
+      ...rows,
+      [],
+    ]);
+    // Column A is the permanent blank margin, so every displayed header is
+    // one column farther right than its zero-based position in `headers`.
+    const qtyColumn = columnName(headers.indexOf("Qty") + 1),
+      bidColumn = columnName(headers.indexOf("Unit Bid") + 1),
+      totalColumn = columnName(headers.indexOf("Total Bid") + 1);
+    const subtotalRows: number[] = [];
+    let currentDataRows: number[] = [];
+    rowPlan.forEach((entry, offset) => {
+      const row = offset + 5;
+      if (entry.kind === "data") {
+        currentDataRows.push(row);
+        sheet[`${totalColumn}${row}`] = {
+          t: "n",
+          f: `IF(${bidColumn}${row}=\"\",\"\",${qtyColumn}${row}*${bidColumn}${row})`,
+          z: "$#,##0.00",
+        };
+        return;
+      }
+      const first = currentDataRows[0];
+      const last = currentDataRows[currentDataRows.length - 1];
+      sheet[`${qtyColumn}${row}`] = {
+        t: "n",
+        f: `SUM(${qtyColumn}${first}:${qtyColumn}${last})`,
+        z: "#,##0",
+      };
+      sheet[`${totalColumn}${row}`] = {
+        t: "n",
+        f: `SUM(${totalColumn}${first}:${totalColumn}${last})`,
+        z: "$#,##0.00",
+      };
+      subtotalRows.push(row);
+      currentDataRows = [];
+    });
+    const totalRow = rowPlan.length + 5;
+    sheet[`${bidColumn}${totalRow}`] = { t: "s", v: "GRAND TOTAL" };
+    sheet[`${qtyColumn}${totalRow}`] = {
+      t: "n",
+      f: subtotalRows.length
+        ? `SUM(${subtotalRows.map((row) => `${qtyColumn}${row}`).join(",")})`
+        : `SUM(${qtyColumn}5:${qtyColumn}${totalRow - 1})`,
+      z: "#,##0",
+    };
+    sheet[`${totalColumn}${totalRow}`] = {
+      t: "n",
+      f: subtotalRows.length
+        ? `SUM(${subtotalRows.map((row) => `${totalColumn}${row}`).join(",")})`
+        : `SUM(${totalColumn}5:${totalColumn}${totalRow - 1})`,
+      z: "$#,##0.00",
+    };
+    const border = {
+      top: { style: "thin", color: { rgb: "CBD5E1" } },
+      bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+      left: { style: "thin", color: { rgb: "CBD5E1" } },
+      right: { style: "thin", color: { rgb: "CBD5E1" } },
+    };
+    for (let headerIndex = 0; headerIndex < headers.length; headerIndex++) {
+      const column = headerIndex + 1;
+      const header = headers[headerIndex];
+      const leftAligned = /description|comments?|notes?/i.test(header);
+      const cell = sheet[`${columnName(column)}4`];
+      if (cell)
+        cell.s = {
+          font: {
+            name: "Calibri",
+            sz: 14,
+            bold: true,
+            color: { rgb: "FFFFFF" },
+          },
+          fill: { patternType: "solid", fgColor: { rgb: "123A59" } },
+          border,
+          alignment: { horizontal: "center", vertical: "center" },
+        };
+      for (let row = 5; row <= totalRow; row++) {
+        const dataCell = sheet[`${columnName(column)}${row}`];
+        const subtotal = rowPlan[row - 5]?.kind === "subtotal";
+        if (dataCell)
+          dataCell.s = {
+            font: {
+              name: "Calibri",
+              sz: 12,
+              bold: row === totalRow || subtotal,
+              color: row === totalRow ? { rgb: "FFFFFF" } : undefined,
+            },
+            fill: {
+              patternType: "solid",
+              fgColor: {
+                rgb:
+                  row === totalRow
+                    ? "123A59"
+                    : subtotal || row % 2
+                      ? "DCEAF4"
+                      : "FFFFFF",
+              },
+            },
+            border,
+            alignment: {
+              horizontal: leftAligned ? "left" : "center",
+              vertical: "center",
+              wrapText: leftAligned,
+            },
+          };
+      }
+    }
+    if (sheet.B2)
+      sheet.B2.s = {
+        font: { name: "Calibri", sz: 18, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { patternType: "solid", fgColor: { rgb: "123A59" } },
+        border,
+        alignment: { horizontal: "center", vertical: "center" },
+      };
+    if (sheet.B3)
+      sheet.B3.s = {
+        font: { name: "Calibri", sz: 12 },
+        fill: { patternType: "solid", fgColor: { rgb: "DCEAF4" } },
+        border,
+        alignment: { wrapText: true, vertical: "center" },
+      };
+    sheet["!merges"] = [
+      { s: { r: 1, c: 1 }, e: { r: 1, c: headers.length } },
+      { s: { r: 2, c: 1 }, e: { r: 2, c: headers.length } },
+    ];
+    sheet["!rows"] = [{ hpt: 36 }, { hpt: 28 }, { hpt: 30 }, { hpt: 24 }];
+    sheet["!cols"] = [
+      { wch: 5 },
+      ...headers.map((header, headerIndex) => ({
+        wch: bidColumnWidth(
+          header,
+          rows.map((row) => row[headerIndex + 1] ?? ""),
+        ),
+      })),
+    ];
+    sheet["!autofilter"] = { ref: `B4:${totalColumn}${totalRow - 1}` };
+    sheet["!freeze"] = {
+      ySplit: 4,
+      topLeftCell: "A5",
+      activePane: "bottomLeft",
+      state: "frozen",
+    };
+    XLSX.utils.book_append_sheet(workbook, sheet, name);
+    summaryRows.push([
+      rawName,
+      indexes.length,
+      indexes.reduce((sum, index) => sum + Number(qty.value(index) || 0), 0),
+      "",
+    ]);
+    summaryFormulas.push(
+      `'${name.replace(/'/g, "''")}'!${totalColumn}${totalRow}`,
+    );
+  }
+  summaryRows.push(["GRAND TOTAL", "", "", ""]);
+  const summary = XLSX.utils.aoa_to_sheet(summaryRows);
+  summaryFormulas.forEach((formula, index) => {
+    summary[`D${index + 2}`] = { t: "n", f: formula, z: "$#,##0.00" };
+  });
+  summary[`D${summaryRows.length}`] = {
+    t: "n",
+    f: `SUM(D2:D${summaryRows.length - 1})`,
+    z: "$#,##0.00",
+  };
+  for (const cell of Object.values(summary)) {
+    if (cell && typeof cell === "object" && "t" in cell)
+      cell.s = {
+        ...(cell.s || {}),
+        alignment: { horizontal: "center", vertical: "center" },
+      };
+  }
+  summary["!cols"] = [{ wch: 31 }, { wch: 12 }, { wch: 14 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(workbook, summary, "Bid Summary");
+  XLSX.writeFile(
+    workbook,
+    assignedFileName?.trim() || `${dealNumber}-Customer-Bid.xlsx`,
+    { compression: true, cellStyles: true },
+  );
+}
+
+export function buildBidSpreadsheet(
+  dealNumber: string,
+  rowCount: number,
+  columns: BidSheetColumn[],
+  assignedFileName?: string,
+  options: BidSpreadsheetOptions = {},
+) {
+  const sourceTab = columns.find((column) => column.header === "Source Tab");
+  // Multi-tab source workbooks become one customer-bid worksheet. Each
+  // source tab is represented as a Lot so every lot, its price inputs and its
+  // subtotal remain visible together on the same page.
+  const preparedColumns =
+    options.awardMode === "multiple" && sourceTab
+      ? [
+          { header: "Lot", value: (index: number) => sourceTab.value(index) },
+          ...columns.filter((column) => column !== sourceTab),
+        ]
+      : columns;
+  const qtyIndex = preparedColumns.findIndex((column) => column.header === "Qty");
+  const qtyColumn =
+    qtyIndex >= 0 ? preparedColumns[qtyIndex] : { header: "Qty", value: () => 1 };
+  const detailColumns = orderDealColumns(
+    preparedColumns.filter((_, index) => index !== qtyIndex),
+  );
+  const gradeColumns = detailColumns.filter(isGradeColumn);
+  const mainColumns = detailColumns.filter((column) => !isGradeColumn(column));
+  const headers = [
+    "Line",
+    ...mainColumns.map((column) => column.header),
+    "Bid Comments",
+    ...gradeColumns.map((column) => column.header),
+    "Qty",
+    "Unit Bid",
+    "Total Bid",
+  ];
+  const sortedIndexes = sortIndexesByManufacturerAndModel(
+    Array.from({ length: rowCount }, (_, index) => index),
+    detailColumns,
+    options.awardMode || "single",
+  );
+  const tableRows = Array.from({ length: rowCount }, (_, index) => [
     "",
+    index + 1,
+    ...mainColumns.map((column) => column.value(index)),
+    "",
+    ...gradeColumns.map((column) => column.value(index)),
     qtyColumn.value(index),
-    ""
-  ]));
-  const qtyHeaderIndex=headers.indexOf("Qty"),unitBidIndex=headers.indexOf("Unit Bid"),totalIndex=headers.indexOf("Total Bid");
-  const totalColumn=columnName(totalIndex),title=displayBidName(dealNumber,assignedFileName),notes=createLotNotes(rowCount,columns);
-  const titleXml=`<row r="1" ht="23" customHeight="1">${inlineCell("A1",title,7)}</row>`,notesXml=`<row r="2" ht="30" customHeight="1">${inlineCell("A2",notes,8)}</row>`;
-  const headerXml=`<row r="3" ht="24" customHeight="1">${headers.map((value,index)=>inlineCell(`${columnName(index)}3`,value,1)).join("")}</row>`;
-  const rowsXml=tableRows.map((row,rowIndex)=>{const excelRow=rowIndex+4,qtyCell=`${columnName(qtyHeaderIndex)}${excelRow}`,unitCell=`${columnName(unitBidIndex)}${excelRow}`,rowStyle=rowIndex%2===0?2:3,currencyStyle=rowIndex%2===0?4:9;return `<row r="${excelRow}">${row.map((value,index)=>inlineCell(`${columnName(index)}${excelRow}`,value,rowStyle)).join("")}<c r="${columnName(totalIndex)}${excelRow}" s="${currencyStyle}"><f>IF(${unitCell}="","",${qtyCell}*${unitCell})</f><v></v></c></row>`}).join("");
-  const grandRow=rowCount+4,unitColumn=columnName(unitBidIndex),qtyColumnName=columnName(qtyHeaderIndex);
-  const grandXml=`<row r="${grandRow}"><c r="${qtyColumnName}${grandRow}" s="5"><f>SUM(${qtyColumnName}4:${qtyColumnName}${rowCount+3})</f><v>0</v></c><c r="${unitColumn}${grandRow}" s="5" t="inlineStr"><is><t>GRAND TOTAL</t></is></c><c r="${totalColumn}${grandRow}" s="6"><f>SUM(${totalColumn}4:${totalColumn}${rowCount+3})</f><v>0</v></c></row>`;
-  const worksheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${totalColumn}${grandRow}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${headers.map((header,index)=>`<col min="${index+1}" max="${index+1}" width="${header.includes("Comments")?30:header==="Line"?8:header.length>15?22:15}" customWidth="1"/>`).join("")}</cols><sheetData>${titleXml}${notesXml}${headerXml}${rowsXml}${grandXml}</sheetData><autoFilter ref="A3:${totalColumn}${rowCount+3}"/><mergeCells count="2"><mergeCell ref="A1:${totalColumn}1"/><mergeCell ref="A2:${totalColumn}2"/></mergeCells></worksheet>`;
-  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEAF4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123A59"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="10"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"/><xf numFmtId="164" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="right"/></xf><xf numFmtId="164" fontId="1" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
-  const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Customer Bid" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="191029" calcMode="auto" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>`;
-  const files={"[Content_Types].xml":strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`),"_rels/.rels":strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),"xl/workbook.xml":strToU8(workbook),"xl/_rels/workbook.xml.rels":strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),"xl/styles.xml":strToU8(styles),"xl/worksheets/sheet1.xml":strToU8(worksheet)};
-  const zipped=zipSync(files,{level:6});
-  const link=document.createElement("a");
-  const bytes=zipped.buffer.slice(zipped.byteOffset,zipped.byteOffset+zipped.byteLength) as ArrayBuffer;
-  link.href=URL.createObjectURL(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
-  link.download=assignedFileName?.trim()||`${dealNumber}-Customer-Bid.xlsx`;
+    "",
+  ]);
+  const rowPlan = createBidRowPlan(
+    sortedIndexes,
+    detailColumns.find((column) => isBoxHeader(column.header)),
+    options.awardMode || "single",
+  );
+  // Column A is intentionally blank to match the approved workbook template.
+  const qtyHeaderIndex = headers.indexOf("Qty") + 1,
+    unitBidIndex = headers.indexOf("Unit Bid") + 1,
+    totalIndex = headers.indexOf("Total Bid") + 1;
+  const totalColumn = columnName(totalIndex),
+    title = displayBidName(dealNumber, assignedFileName),
+    notes = `LOT NOTES: ${buildLotNotes(rowCount, preparedColumns)}`;
+  const spacerXml = `<row r="1" ht="36" customHeight="1"></row>`;
+  const titleXml = `<row r="2" ht="28" customHeight="1">${inlineCell("B2", title, 7)}</row>`,
+    notesXml = `<row r="3" ht="30" customHeight="1">${inlineCell("B3", notes, 8)}</row>`;
+  const headerXml = `<row r="4" ht="24" customHeight="1">${headers.map((value, index) => inlineCell(`${columnName(index + 1)}4`, value, 1)).join("")}</row>`;
+  const subtotalRows: number[] = [];
+  let currentGroupRows: number[] = [];
+  // Multiple-award generation only inserts subtotal rows. Every source-backed
+  // data cell is copied exactly as it is provided to this generator.
+  const rowsXml = rowPlan
+    .map((entry, planIndex) => {
+      const excelRow = planIndex + 5;
+      if (entry.kind === "subtotal") {
+        const first = currentGroupRows[0],
+          last = currentGroupRows[currentGroupRows.length - 1];
+        subtotalRows.push(excelRow);
+        currentGroupRows = [];
+        return `<row r="${excelRow}">${headers
+          .map((_, index) => {
+            const sheetIndex = index + 1;
+            const column = columnName(sheetIndex);
+            if (sheetIndex === qtyHeaderIndex)
+              return `<c r="${column}${excelRow}" s="2"><f>SUM(${column}${first}:${column}${last})</f><v>0</v></c>`;
+            if (sheetIndex === unitBidIndex)
+              return inlineCell(`${column}${excelRow}`, "Total", 2);
+            if (sheetIndex === totalIndex)
+              return `<c r="${column}${excelRow}" s="4"><f>SUM(${column}${first}:${column}${last})</f><v>0</v></c>`;
+            return inlineCell(`${column}${excelRow}`, "", 2);
+          })
+          .join("")}</row>`;
+      }
+      const row = tableRows[entry.sourceIndex],
+        qtyCell = `${columnName(qtyHeaderIndex)}${excelRow}`,
+        unitCell = `${columnName(unitBidIndex)}${excelRow}`,
+        rowStyle = entry.dataIndex % 2 === 0 ? 2 : 3,
+        currencyStyle = entry.dataIndex % 2 === 0 ? 4 : 9;
+      currentGroupRows.push(excelRow);
+      return `<row r="${excelRow}">${row
+        .map((value, index) => {
+          const header = headers[index - 1] || "";
+          const style = index === 0
+            ? 3
+            : /description|comments?|notes?/i.test(header)
+              ? entry.dataIndex % 2 === 0
+                ? 10
+                : 11
+              : rowStyle;
+          return inlineCell(
+            `${columnName(index)}${excelRow}`,
+            value,
+            style,
+          );
+        })
+        .join("")}<c r="${columnName(totalIndex)}${excelRow}" s="${currencyStyle}"><f>IF(${unitCell}="","",${qtyCell}*${unitCell})</f><v></v></c></row>`;
+    })
+    .join("");
+  const grandRow = rowPlan.length + 5,
+    unitColumn = columnName(unitBidIndex),
+    qtyColumnName = columnName(qtyHeaderIndex);
+  const sumRows = (column: string) =>
+    subtotalRows.length
+      ? `SUM(${subtotalRows.map((row) => `${column}${row}`).join(",")})`
+      : `SUM(${column}5:${column}${grandRow - 1})`;
+  const grandCells = headers.map((_, index) => {
+    const column = columnName(index + 1);
+    if (column === qtyColumnName)
+      return `<c r="${column}${grandRow}" s="5"><f>${sumRows(column)}</f><v>0</v></c>`;
+    if (column === unitColumn)
+      return `<c r="${column}${grandRow}" s="5" t="inlineStr"><is><t>GRAND TOTAL</t></is></c>`;
+    if (column === totalColumn)
+      return `<c r="${column}${grandRow}" s="6"><f>${sumRows(column)}</f><v>0</v></c>`;
+    return inlineCell(`${column}${grandRow}`, "", 5);
+  }).join("");
+  const grandXml = `<row r="${grandRow}">${grandCells}</row>`;
+  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${totalColumn}${grandRow}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="5" customWidth="1"/>${headers.map((header, index) => `<col min="${index + 2}" max="${index + 2}" width="${bidColumnWidth(header, tableRows.map((row) => row[index + 1] ?? ""))}" customWidth="1"/>`).join("")}</cols><sheetData>${spacerXml}${titleXml}${notesXml}${headerXml}${rowsXml}${grandXml}</sheetData><autoFilter ref="B4:${totalColumn}${grandRow - 1}"/><mergeCells count="2"><mergeCell ref="B2:${totalColumn}2"/><mergeCell ref="B3:${totalColumn}3"/></mergeCells></worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="14"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEAF4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123A59"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF7F8C96"/></left><right style="thin"><color rgb="FF7F8C96"/></right><top style="thin"><color rgb="FF7F8C96"/></top><bottom style="thin"><color rgb="FF7F8C96"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" wrapText="1" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" wrapText="1" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Customer Bid" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="191029" calcMode="auto" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>`;
+  const files = {
+    "[Content_Types].xml": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+    ),
+    "_rels/.rels": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    ),
+    "xl/workbook.xml": strToU8(workbook),
+    "xl/_rels/workbook.xml.rels": strToU8(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+    ),
+    "xl/styles.xml": strToU8(
+      styles
+        .replace('<fonts count="3">', '<fonts count="4">')
+        .replace(
+          "</fonts><fills",
+          '<font><b/><color rgb="FFFFFFFF"/><sz val="18"/><name val="Calibri"/></font></fonts><fills',
+        )
+        .replace(
+          '<xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf>',
+          '<xf numFmtId="0" fontId="3" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="center" vertical="center"/></xf>',
+        )
+        .replaceAll('<sz val="11"/>', '<sz val="12"/>'),
+    ),
+    "xl/worksheets/sheet1.xml": strToU8(worksheet),
+  };
+  const zipped = zipSync(files, { level: 6 });
+  return {
+    bytes: zipped,
+    filename: assignedFileName?.trim() || `${dealNumber}-Customer-Bid.xlsx`,
+  };
+}
+
+export function downloadBidSpreadsheet(
+  dealNumber: string,
+  rowCount: number,
+  columns: BidSheetColumn[],
+  assignedFileName?: string,
+  options: BidSpreadsheetOptions = {},
+) {
+  const {bytes,filename}=buildBidSpreadsheet(dealNumber,rowCount,columns,assignedFileName,options);
+  const link = document.createElement("a");
+  const fileBytes = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  link.href = URL.createObjectURL(
+    new Blob([fileBytes], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+  );
+  link.download = filename;
   link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
-function parseCsv(text:string){
-  const rows:string[][]=[];let row:string[]=[];let cell="";let quoted=false;
-  for(let i=0;i<text.length;i++){const char=text[i];if(quoted){if(char==='"'&&text[i+1]==='"'){cell+='"';i++}else if(char==='"')quoted=false;else cell+=char}else if(char==='"')quoted=true;else if(char===","){row.push(cell);cell=""}else if(char==="\n"){row.push(cell.replace(/\r$/,"").trim());rows.push(row);row=[];cell=""}else cell+=char}
-  if(cell||row.length){row.push(cell.replace(/\r$/,"").trim());rows.push(row)}return rows;
+function parseCsv(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"' && text[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (char === '"') quoted = false;
+      else cell += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (char === "\n") {
+      row.push(cell.replace(/\r$/, "").trim());
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += char;
+  }
+  if (cell || row.length) {
+    row.push(cell.replace(/\r$/, "").trim());
+    rows.push(row);
+  }
+  return rows;
 }
 
-function parseSpreadsheetXml(text:string){
-  const document=new DOMParser().parseFromString(text,"application/xml");
-  if(document.querySelector("parsererror"))throw new Error("This Excel file could not be read. Please use the spreadsheet downloaded from this deal.");
-  return [...document.getElementsByTagNameNS("*","Row")].map(row=>{
-    const result:string[]=[];let columnIndex=0;
-    for(const cell of [...row.getElementsByTagNameNS("*","Cell")]){
-      const explicitIndex=cell.getAttributeNS("urn:schemas-microsoft-com:office:spreadsheet","Index")||cell.getAttribute("ss:Index");
-      if(explicitIndex)columnIndex=Math.max(0,Number(explicitIndex)-1);
-      result[columnIndex]=cell.getElementsByTagNameNS("*","Data")[0]?.textContent?.trim()||"";
+function parseSpreadsheetXml(text: string) {
+  const document = new DOMParser().parseFromString(text, "application/xml");
+  if (document.querySelector("parsererror"))
+    throw new Error(
+      "This Excel file could not be read. Please use the spreadsheet downloaded from this deal.",
+    );
+  return [...document.getElementsByTagNameNS("*", "Row")].map((row) => {
+    const result: string[] = [];
+    let columnIndex = 0;
+    for (const cell of [...row.getElementsByTagNameNS("*", "Cell")]) {
+      const explicitIndex =
+        cell.getAttributeNS(
+          "urn:schemas-microsoft-com:office:spreadsheet",
+          "Index",
+        ) || cell.getAttribute("ss:Index");
+      if (explicitIndex) columnIndex = Math.max(0, Number(explicitIndex) - 1);
+      result[columnIndex] =
+        cell.getElementsByTagNameNS("*", "Data")[0]?.textContent?.trim() || "";
       columnIndex++;
     }
     return result;
   });
 }
 
-function columnIndex(reference:string){
-  const letters=(reference.match(/^[A-Z]+/i)?.[0]||"").toUpperCase();
-  let result=0;for(const letter of letters)result=(result*26)+(letter.charCodeAt(0)-64);return Math.max(0,result-1);
+function columnIndex(reference: string) {
+  const letters = (reference.match(/^[A-Z]+/i)?.[0] || "").toUpperCase();
+  let result = 0;
+  for (const letter of letters)
+    result = result * 26 + (letter.charCodeAt(0) - 64);
+  return Math.max(0, result - 1);
 }
 
-async function parseXlsx(file:File){
-  let files:ReturnType<typeof unzipSync>;
-  try{files=unzipSync(new Uint8Array(await file.arrayBuffer()))}catch{throw new Error("This .xlsx file could not be opened. Please use the spreadsheet downloaded from this deal.")}
-  const decoder=new TextDecoder();
-  const sharedXml=files["xl/sharedStrings.xml"]?decoder.decode(files["xl/sharedStrings.xml"]):"";
-  const shared=sharedXml?[...new DOMParser().parseFromString(sharedXml,"application/xml").getElementsByTagNameNS("*","si")].map(item=>[...item.getElementsByTagNameNS("*","t")].map(text=>text.textContent||"").join("")):[];
-  const sheetPaths=Object.keys(files).filter(path=>/^xl\/worksheets\/sheet\d+\.xml$/i.test(path)).sort();
-  if(!sheetPaths.length)throw new Error("No worksheet was found in the uploaded Excel file.");
-  return sheetPaths.flatMap(sheetPath=>{const document=new DOMParser().parseFromString(decoder.decode(files[sheetPath]),"application/xml");if(document.querySelector("parsererror"))throw new Error("The Excel worksheet could not be read.");return [...document.getElementsByTagNameNS("*","row")].map(row=>{
-    const result:string[]=[];
-    for(const cell of [...row.getElementsByTagNameNS("*","c")]){
-      const index=columnIndex(cell.getAttribute("r")||"");
-      const type=cell.getAttribute("t"),raw=cell.getElementsByTagNameNS("*","v")[0]?.textContent||"";
-      result[index]=type==="s"?(shared[Number(raw)]||""):type==="inlineStr"?[...cell.getElementsByTagNameNS("*","t")].map(text=>text.textContent||"").join(""):raw;
+async function parseXlsx(file: File) {
+  let files: ReturnType<typeof unzipSync>;
+  try {
+    files = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  } catch {
+    throw new Error(
+      "This .xlsx file could not be opened. Please use the spreadsheet downloaded from this deal.",
+    );
+  }
+  const decoder = new TextDecoder();
+  const sharedXml = files["xl/sharedStrings.xml"]
+    ? decoder.decode(files["xl/sharedStrings.xml"])
+    : "";
+  const shared = sharedXml
+    ? [
+        ...new DOMParser()
+          .parseFromString(sharedXml, "application/xml")
+          .getElementsByTagNameNS("*", "si"),
+      ].map((item) =>
+        [...item.getElementsByTagNameNS("*", "t")]
+          .map((text) => text.textContent || "")
+          .join(""),
+      )
+    : [];
+  const sheetPaths = Object.keys(files)
+    .filter((path) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(path))
+    .sort();
+  if (!sheetPaths.length)
+    throw new Error("No worksheet was found in the uploaded Excel file.");
+  return sheetPaths.flatMap((sheetPath) => {
+    const document = new DOMParser().parseFromString(
+      decoder.decode(files[sheetPath]),
+      "application/xml",
+    );
+    if (document.querySelector("parsererror"))
+      throw new Error("The Excel worksheet could not be read.");
+    return [...document.getElementsByTagNameNS("*", "row")].map((row) => {
+      const result: string[] = [];
+      for (const cell of [...row.getElementsByTagNameNS("*", "c")]) {
+        const index = columnIndex(cell.getAttribute("r") || "");
+        const type = cell.getAttribute("t"),
+          raw = cell.getElementsByTagNameNS("*", "v")[0]?.textContent || "";
+        result[index] =
+          type === "s"
+            ? shared[Number(raw)] || ""
+            : type === "inlineStr"
+              ? [...cell.getElementsByTagNameNS("*", "t")]
+                  .map((text) => text.textContent || "")
+                  .join("")
+              : raw;
+      }
+      return result;
+    });
+  });
+}
+
+export async function readBidSpreadsheet(
+  file: File,
+): Promise<ImportedBidRow[]> {
+  if (!file.size) throw new Error("The selected bid spreadsheet is empty.");
+  if (file.size > 10 * 1024 * 1024)
+    throw new Error("The bid spreadsheet must be 10 MB or smaller.");
+  const name = file.name.toLowerCase();
+  if (
+    !name.endsWith(".xls") &&
+    !name.endsWith(".xlsx") &&
+    !name.endsWith(".xml") &&
+    !name.endsWith(".csv")
+  )
+    throw new Error(
+      "Please upload the completed Excel bid spreadsheet downloaded from this deal.",
+    );
+  const rows = name.endsWith(".xlsx")
+    ? await parseXlsx(file)
+    : name.endsWith(".csv")
+      ? parseCsv(await file.text())
+      : parseSpreadsheetXml(await file.text());
+  let headers: string[] = [];
+  let lineIndex = -1,
+    bidIndex = -1,
+    commentsIndex = -1;
+  const imported: ImportedBidRow[] = [];
+  for (const row of rows) {
+    if (row.some((cell) => cell === "Line" || cell === "LBB Line ID" || cell === "PDD Line ID")) {
+      headers = row.map((value) => value.trim());
+      lineIndex = headers.includes("Line")
+        ? headers.indexOf("Line")
+        : Math.max(headers.indexOf("LBB Line ID"), headers.indexOf("PDD Line ID"));
+      bidIndex = headers.indexOf("Unit Bid");
+      commentsIndex = headers.indexOf("Bid Comments");
+      continue;
     }
-    return result;
-  })});
-}
-
-export async function readBidSpreadsheet(file:File):Promise<ImportedBidRow[]>{
-  if(file.size>10*1024*1024)throw new Error("The bid spreadsheet must be 10 MB or smaller.");
-  const name=file.name.toLowerCase();
-  if(!name.endsWith(".xls")&&!name.endsWith(".xlsx")&&!name.endsWith(".xml")&&!name.endsWith(".csv"))throw new Error("Please upload the completed Excel bid spreadsheet downloaded from this deal.");
-  const rows=name.endsWith(".xlsx")?await parseXlsx(file):name.endsWith(".csv")?parseCsv(await file.text()):parseSpreadsheetXml(await file.text());let headers:string[]=[];let lineIndex=-1,bidIndex=-1,commentsIndex=-1;const imported:ImportedBidRow[]=[];
-  for(const row of rows){if(row.some(cell=>cell==="Line"||cell==="PDD Line ID")){headers=row.map(value=>value.trim());lineIndex=headers.includes("Line")?headers.indexOf("Line"):headers.indexOf("PDD Line ID");bidIndex=headers.indexOf("Unit Bid");commentsIndex=headers.indexOf("Bid Comments");continue}if(lineIndex>=0&&bidIndex>=0&&row.some(Boolean))imported.push({lineId:(row[lineIndex]||"").trim(),unitBid:(row[bidIndex]||"").replace(/[$,]/g,"").trim(),comments:commentsIndex>=0?(row[commentsIndex]||"").trim():""})}
-  if(!imported.length)throw new Error("No bid lines were found. Please use the spreadsheet downloaded from this deal.");return imported;
+    if (lineIndex >= 0 && bidIndex >= 0 && row.some(Boolean))
+      imported.push({
+        lineId: (row[lineIndex] || "").trim(),
+        unitBid: (row[bidIndex] || "").replace(/[$,]/g, "").trim(),
+        comments: commentsIndex >= 0 ? (row[commentsIndex] || "").trim() : "",
+      });
+  }
+  if (!imported.length)
+    throw new Error(
+      "No bid lines were found. Please use the spreadsheet downloaded from this deal.",
+    );
+  return imported;
 }

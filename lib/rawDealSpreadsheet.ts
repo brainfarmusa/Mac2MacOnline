@@ -1,47 +1,91 @@
-export type RawSpreadsheetPreview={headers:string[];rows:string[][];rowCount:number;headerRow:number};
+import {readSpreadsheetFile} from "./spreadsheetFile";
+
+export type SpreadsheetSkippedRow={sheet:string;row:number;reason:string;preview:string};
+export type RawSpreadsheetPreview={headers:string[];rows:string[][];rowCount:number;headerRow:number;rowSources?:Array<{sheet:string;row:number}>;skippedRows?:SpreadsheetSkippedRow[]};
 export type SpreadsheetSelection={mode:"single"|"all"|"lots";names:string[]};
 
-function parseCsv(text:string){
-  const rows:string[][]=[];let row:string[]=[];let cell="";let quoted=false;
-  for(let i=0;i<text.length;i++){const char=text[i];if(quoted){if(char==='"'&&text[i+1]==='"'){cell+='"';i++}else if(char==='"')quoted=false;else cell+=char}else if(char==='"')quoted=true;else if(char===","){row.push(cell);cell=""}else if(char==="\n"){row.push(cell.replace(/\r$/,""));rows.push(row);row=[];cell=""}else cell+=char}
-  if(cell||row.length){row.push(cell.replace(/\r$/,""));rows.push(row)}return rows;
-}
-
-async function readWorkbook(file:File){
-  try{const XLSX=await import("@e965/xlsx");return XLSX.read(await file.arrayBuffer(),{type:"array",raw:false,cellText:true})}catch{throw new Error("This Excel workbook could not be opened. Please use a valid .xls or .xlsx file.")}
-}
+// Container Log is reference material only. Keep it in the stored original
+// workbook, but never use it to create, quantify, or publish bid lines.
+const ignoredBidSheet = (name:string) => /^container\s+log$/i.test(name.trim());
 
 export async function spreadsheetSheetNames(file:File):Promise<string[]>{
-  const lower=file.name.toLowerCase();
-  if(lower.endsWith(".csv"))return ["CSV"];
-  if(!lower.endsWith(".xls")&&!lower.endsWith(".xlsx"))throw new Error("Please select an .xls, .xlsx or .csv spreadsheet.");
-  const workbook=await readWorkbook(file);return workbook.SheetNames.filter(name=>Boolean(workbook.Sheets[name]));
+  return (await readSpreadsheetFile(file,{label:"raw spreadsheet"}))
+    .map(sheet=>sheet.name)
+    .filter(name=>!ignoredBidSheet(name));
+}
+
+const quantityHeader=/^(?:qty|quantity|units?|unit count|count)$/i;
+const itemHeader=/^(?:make|manufacturer|mfg|brand|model|description|processor|cpu|memory(?: gb)?|ram|form factor|service tag)$/i;
+const calculationHeader=/^(?:bid\s*\/\s*unit|unit bid|unit price|bid amount|total(?: bid| price| amount)?|extended(?: price| amount)?)$/i;
+
+function headerScore(row:string[]){
+  const values=row.map(value=>String(value||"").trim());
+  return (values.some(value=>quantityHeader.test(value))?20:0)+values.filter(value=>itemHeader.test(value)).length*4+values.filter(Boolean).length;
+}
+
+function headerExtent(headers:string[]){
+  let last=headers.reduce((found,value,index)=>value?index:found,-1);
+  for(let index=0;index<headers.length-2;index++){
+    if(headers[index]||headers[index+1]||headers[index+2])continue;
+    if(headers.slice(0,index).filter(Boolean).length>=2){last=headers.slice(0,index).reduce((found,value,offset)=>value?offset:found,-1);break}
+  }
+  return last;
+}
+
+function sheetLotName(parsed:string[][],sheetName:string){
+  for(const row of parsed.slice(0,20))for(let index=0;index<row.length;index++){
+    if(!/^(?:pallet|box|lot)(?:\s*(?:#|number|no\.?))?\s*:?$/i.test(String(row[index]||"").trim()))continue;
+    const value=row.slice(index+1).map(cell=>String(cell||"").trim()).find(Boolean);
+    if(value)return value;
+  }
+  return sheetName;
 }
 
 function normalizeSheet(parsed:string[][],sheetName:string){
-  const headerIndex=parsed.findIndex(row=>row.filter(value=>String(value||"").trim()).length>=2);
+  const candidates=parsed.map((row,index)=>({index,score:headerScore(row)})).filter(candidate=>candidate.score>=20);
+  const headerIndex=candidates.sort((left,right)=>right.score-left.score||left.index-right.index)[0]?.index??parsed.findIndex(row=>row.filter(value=>String(value||"").trim()).length>=2);
   if(headerIndex<0)throw new Error(`A header row could not be found on the “${sheetName}” tab.`);
   const headers=(parsed[headerIndex]||[]).map(value=>String(value||"").trim());
-  const lastHeader=headers.reduce((last,value,index)=>value?index:last,-1);
+  const lastHeader=headerExtent(headers);
   if(lastHeader<1)throw new Error(`The “${sheetName}” tab needs at least two named columns.`);
-  const normalizedHeaders=headers.slice(0,lastHeader+1);
-  const rows=parsed.slice(headerIndex+1).map(row=>normalizedHeaders.map((_,index)=>String(row[index]??"").trim())).filter(row=>row.some(Boolean));
+  const sourceHeaders=headers.slice(0,lastHeader+1);
+  const keptIndexes=sourceHeaders.map((header,index)=>calculationHeader.test(header)?-1:index).filter(index=>index>=0);
+  const normalizedHeaders=keptIndexes.map(index=>sourceHeaders[index]);
+  const quantityIndex=normalizedHeaders.findIndex(header=>quantityHeader.test(header));
+  const skippedRows:SpreadsheetSkippedRow[]=[];
+  const items=parsed.slice(headerIndex+1)
+    .map((row,index)=>({values:keptIndexes.map(column=>String(row[column]??"").trim()),rowNumber:headerIndex+2+index}))
+    .filter(item=>{
+      const row=item.values,nonEmpty=row.filter(Boolean);
+      if(!nonEmpty.length)return false;
+      if(nonEmpty.length<2){
+        skippedRows.push({sheet:sheetName,row:item.rowNumber,reason:"Only one populated cell was found, so this row was treated as notes or footer text.",preview:nonEmpty[0]});
+        return false;
+      }
+      if(quantityIndex<0)return true;
+      const rawQuantity=String(row[quantityIndex]||"").trim(),quantity=Number(rawQuantity.replace(/,/g,""));
+      if(!Number.isFinite(quantity)||quantity<=0){
+        skippedRows.push({sheet:sheetName,row:item.rowNumber,reason:`The quantity “${rawQuantity||"blank"}” is not a positive number.`,preview:nonEmpty.slice(0,3).join(" | ")});
+        return false;
+      }
+      return true;
+    });
+  const rows=items.map(item=>item.values),rowNumbers=items.map(item=>item.rowNumber);
   if(!rows.length)throw new Error(`No item rows were found on the “${sheetName}” tab.`);
-  return {headers:normalizedHeaders,rows,headerRow:headerIndex+1};
+  return {headers:normalizedHeaders,rows,rowNumbers,skippedRows,headerRow:headerIndex+1,lotName:sheetLotName(parsed,sheetName)};
 }
 
 export async function previewRawSpreadsheet(file:File,selection?:SpreadsheetSelection):Promise<RawSpreadsheetPreview>{
-  if(file.size===0)throw new Error("The selected spreadsheet is empty.");
-  if(file.size>10*1024*1024)throw new Error("The raw spreadsheet must be 10 MB or smaller.");
-  const lower=file.name.toLowerCase();
-  if(!lower.endsWith(".xls")&&!lower.endsWith(".xlsx")&&!lower.endsWith(".csv"))throw new Error("Please select an .xls, .xlsx or .csv spreadsheet.");
-  if(lower.endsWith(".csv")){const sheet=normalizeSheet(parseCsv(await file.text()),"CSV");return {...sheet,rowCount:sheet.rows.length}}
-  const XLSX=await import("@e965/xlsx");const workbook=await readWorkbook(file);const available=workbook.SheetNames.filter(name=>Boolean(workbook.Sheets[name]));
-  const chosen=selection?.mode==="all"?available:selection?.names?.length?selection.names:[available[0]];
-  if(!chosen.length)throw new Error("No worksheet was found in this Excel workbook.");
-  const sheets=chosen.map(name=>{if(!workbook.Sheets[name])throw new Error(`The “${name}” tab is no longer available.`);const parsed=XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name],{header:1,raw:false,defval:""}).map(row=>row.map(value=>String(value??"")));return {name,...normalizeSheet(parsed,name)}});
-  if(sheets.length===1)return {headers:sheets[0].headers,rows:sheets[0].rows,rowCount:sheets[0].rows.length,headerRow:sheets[0].headerRow};
-  const headers=["Source Tab",...Array.from(new Set(sheets.flatMap(sheet=>sheet.headers)))];
-  const rows=sheets.flatMap(sheet=>sheet.rows.map(row=>{const values=new Map(sheet.headers.map((header,index)=>[header,row[index]||""]));return [sheet.name,...headers.slice(1).map(header=>values.get(header)||"")]}));
-  return {headers,rows,rowCount:rows.length,headerRow:1};
+  const workbook=await readSpreadsheetFile(file,{label:"raw spreadsheet"}),available=workbook.map(sheet=>sheet.name).filter(name=>!ignoredBidSheet(name));
+  if(!available.length)throw new Error("No sale-inventory worksheet was found. Container Log tabs are retained in the original workbook but are not used to create bid lines.");
+  const requested=(selection?.mode==="all"?available:selection?.names?.length?selection.names:[available[0]]).filter(name=>!ignoredBidSheet(name));
+  const chosen=selection?.mode==="lots"?requested.filter(name=>!/(?:^|\b)(?:summary|instructions?|read\s*me)(?:\b|$)/i.test(name.trim())):requested;
+  if(!chosen.length)throw new Error("No sale-inventory worksheet was found. Container Log tabs are retained in the original workbook but are not used to create bid lines.");
+  const sheets=chosen.map(name=>{const selected=workbook.find(sheet=>sheet.name===name);if(!selected)throw new Error(`The “${name}” tab is no longer available.`);return {name,...normalizeSheet(selected.rows,name)}});
+  if(sheets.length===1)return {headers:sheets[0].headers,rows:sheets[0].rows,rowCount:sheets[0].rows.length,headerRow:sheets[0].headerRow,rowSources:sheets[0].rows.map((_,index)=>({sheet:sheets[0].name,row:sheets[0].rowNumbers[index]})),skippedRows:sheets[0].skippedRows};
+  const separateLots=selection?.mode==="lots";
+  const headers=["Source Tab",...(separateLots?["Lot #"]:[]),...Array.from(new Set(sheets.flatMap(sheet=>sheet.headers)))];
+  const dataHeaders=headers.slice(separateLots?2:1);
+  const combined=sheets.flatMap(sheet=>sheet.rows.map((row,index)=>{const values=new Map(sheet.headers.map((header,column)=>[header,row[column]||""]));return {row:[sheet.name,...(separateLots?[sheet.lotName]:[]),...dataHeaders.map(header=>values.get(header)||"")],source:{sheet:sheet.name,row:sheet.rowNumbers[index]}}}));
+  return {headers,rows:combined.map(item=>item.row),rowCount:combined.length,headerRow:1,rowSources:combined.map(item=>item.source),skippedRows:sheets.flatMap(sheet=>sheet.skippedRows)};
 }

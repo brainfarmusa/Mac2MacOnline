@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {PageHero,Shell} from "@/components/SiteShell";
-export const metadata={title:"About Our Technology Remarketing Company",description:"Learn about Mac2MacOnline's experience in used computers, enterprise technology remarketing, asset recovery and global wholesale partnerships."};
+export const metadata={title:"About Our Technology Remarketing Company",description:"Learn about Mac2MacOnline's experience in used computers, enterprise technology remarketing, asset recovery and global wholesale partnerships.",alternates:{canonical:"/about"}};
 
 export default function Page(){return <Shell>
   <PageHero eyebrow="Established market knowledge" title="Technology lifecycle, handled practically." intro="Mac2MacOnline is geared toward wholesale technology sales, backed by more than four decades of extensive experience and long-standing relationships throughout the global secondary market."/>

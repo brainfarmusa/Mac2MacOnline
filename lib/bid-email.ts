@@ -32,16 +32,16 @@ async function send(apiKey:string,from:string,to:string[],subject:string,html:st
 export async function sendBidNotifications(input:BidEmailInput):Promise<BidEmailResult>{
   const apiKey=input.apiKey?.trim();
   if(!apiKey)return {status:"not_configured",error:"RESEND_API_KEY is not configured"};
-  const from=input.from?.trim()||"Mac2MacOnline Deal Desk <bids@mac2maconline.com>";
+  const from=input.from?.trim()||"Mac2MacOnline Live Bid Board <bids@mac2maconline.com>";
   const admin=input.adminEmail?.trim()||"sales@mac2maconline.com";
-  const staffRecipients=[admin,input.employeeEmail?.trim()].filter((value,index,array):value is string=>Boolean(value)&&array.indexOf(value)===index);
+  const staffRecipients=[admin,input.employeeEmail?.trim()].filter((value,index,array):value is string=>Boolean(value)&&array.findIndex(candidate=>candidate?.toLowerCase()===value.toLowerCase())===index);
   const detailRows=(input.lines||[]).slice(0,200).map(line=>`<tr><td style="padding:6px;border-bottom:1px solid #dbe3ec">${line.lineNumber}</td><td style="padding:6px;border-bottom:1px solid #dbe3ec">${escapeHtml([line.brand,line.model,line.modelNumber].filter(Boolean).join(" "))}</td><td style="padding:6px;text-align:right;border-bottom:1px solid #dbe3ec">${line.quantity}</td><td style="padding:6px;text-align:right;border-bottom:1px solid #dbe3ec">${money(line.unitBid)}</td><td style="padding:6px;text-align:right;border-bottom:1px solid #dbe3ec">${money(line.quantity*line.unitBid)}</td></tr>`).join("");
   const summary=`<p><strong>Bid:</strong> ${escapeHtml(input.bidNumber)}<br><strong>Deal:</strong> ${escapeHtml(input.dealNumber)}<br><strong>Company:</strong> ${escapeHtml(input.company)}<br><strong>Contact:</strong> ${escapeHtml(input.bidderName)} (${escapeHtml(input.bidderEmail)})<br><strong>Total units:</strong> ${input.quantity}<br><strong>Grand total:</strong> ${money(input.total)}</p>`;
   const table=detailRows?`<table style="border-collapse:collapse;width:100%;max-width:900px"><thead><tr><th align="left">Line</th><th align="left">Item</th><th align="right">Qty</th><th align="right">Unit bid</th><th align="right">Line total</th></tr></thead><tbody>${detailRows}</tbody></table>`:"";
   try{
     await Promise.all([
       send(apiKey,from,[input.bidderEmail],`We received your bid ${input.bidNumber}`,`<h2>Thank you—your bid was received.</h2>${summary}<p>Mac2MacOnline will contact you if additional information is needed.</p>`),
-      send(apiKey,from,staffRecipients,`New Deal Desk bid ${input.bidNumber} — ${input.company}`,`<h2>New bid submitted</h2>${summary}${table}${input.notes?`<p><strong>Notes:</strong><br>${escapeHtml(input.notes).replace(/\n/g,"<br>")}</p>`:""}`)
+      send(apiKey,from,staffRecipients,`New Live Bid Board bid ${input.bidNumber} — ${input.company}`,`<h2>New bid submitted</h2>${summary}${table}${input.notes?`<p><strong>Notes:</strong><br>${escapeHtml(input.notes).replace(/\n/g,"<br>")}</p>`:""}`)
     ]);
     return {status:"sent"};
   }catch(error){return {status:"failed",error:error instanceof Error?error.message:"Unknown email delivery error"}}

@@ -1,25 +1,31 @@
 .commissionFees {
   display: grid;
-  grid-template-columns: 180px 180px 1fr;
-  align-items: end;
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(205px, 1fr));
+  align-items: center;
+  gap: 8px 14px;
   margin-top: 10px;
 }
 .commissionFees label {
-  display: grid;
-  gap: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: #37566d;
   font-size: 11px;
   font-weight: 900;
+  white-space: nowrap;
 }
 .commissionFees input {
-  width: 100%;
-  padding: 9px;
+  width: 1in;
+  flex: 0 0 1in;
+  padding: 7px 8px;
+  box-sizing: border-box;
   border: 1px solid #9bb9cc;
   border-radius: 7px;
   font: inherit;
 }
 .commissionFees small {
+  grid-column: 1 / -1;
   padding-bottom: 9px;
   color: #60798b;
   font-size: 10px;
@@ -27,4 +33,7 @@
 @media (max-width: 650px) {
   .commissionFees { grid-template-columns: 1fr; }
   .commissionFees small { padding-bottom: 0; }
+}
+@media (min-width: 651px) and (max-width: 1000px) {
+  .commissionFees { grid-template-columns: repeat(2, minmax(205px, 1fr)); }
 }

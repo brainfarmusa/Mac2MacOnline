@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect,useState} from "react";
-import {currentPddSession,pddAuthFetch} from "@/lib/pdd-auth";
+import {currentPddEmployeeEmail,currentPddSession,pddAuthFetch} from "@/lib/pdd-auth";
 
 export function DealWorkbookNav(){
   const [visible,setVisible]=useState(false);
@@ -9,19 +9,21 @@ export function DealWorkbookNav(){
   useEffect(()=>{void(async()=>{
     const path=window.location.pathname;
     if(!(path==="/employee"||path.startsWith("/employee/")||path==="/public-deal-desk/deal-builder"))return;
-    setVisible(true);
     const session=await currentPddSession();
     if(!session)return;
-    const response=await pddAuthFetch("/rest/v1/pdd_employee_access?select=role&limit=1",{headers:{Authorization:`Bearer ${session.access_token}`}});
-    if(response.ok){const profiles=await response.json() as {role:string}[];setIsAdmin(profiles[0]?.role==="administrator")}
+    const email=await currentPddEmployeeEmail(session);
+    if(!email)return;
+    const response=await pddAuthFetch(`/rest/v1/pdd_employee_access?select=role&email=eq.${encodeURIComponent(email)}&active=eq.true&limit=1`,{headers:{Authorization:`Bearer ${session.access_token}`}});
+    if(response.ok){const profiles=await response.json() as {role:string}[];if(profiles.length){setVisible(true);setIsAdmin(profiles[0]?.role==="administrator")}}
   })()},[]);
   if(!visible)return null;
   return <nav className="dealWorkbookNav" aria-label="Deal Workbook">
     <a className="workbookHome" href="/employee">Deal Workbook</a>
     <details><summary>Deals</summary><div>
-      <a href="/public-deal-desk/deal-builder?new=1">Upload New Deal</a>
-      <a href="/public-deal-desk/deal-builder">Continue Last Deal</a>
+      <a href="/employee/box-awards">Box Awards</a>
       <a href="/employee/deals">Manage Deals &amp; Awards</a>
+      <a href="/public-deal-desk/deal-builder?new=1&amp;award=single">Create New Deal</a>
+      <a href="/public-deal-desk/deal-builder?new=1&amp;award=multiple">Create Multi-Tab/Lot Deal</a>
     </div></details>
     <details><summary>Sales</summary><div>
       <a href="/employee/customer-bid">Submit Customer Bid</a>
@@ -33,6 +35,11 @@ export function DealWorkbookNav(){
       <a href="/employee/purchase-order-upload">PO From Spreadsheet</a>
       <a href="/employee/orders?type=purchase">Purchase Order History</a>
       <a href="/employee/contacts?type=vendors">Vendor Directory</a>
+    </div></details>
+    <details><summary>Research</summary><div>
+      <a href="/employee/spec-bid-analysis?purchase=broker">Spec Bid Analysis (Broker Purchase)</a>
+      <a href="/employee/spec-bid-analysis?purchase=end-user">Spec Bid Analysis (End-User Purchase)</a>
+      <a href="/employee/spec-bid-analysis?purchase=itad">Spec Bid Analysis (ITAD Purchase)</a>
     </div></details>
     <details><summary>Records &amp; Reports</summary><div>
       <a href="/employee/orders">All Orders</a>

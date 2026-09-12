@@ -5,7 +5,9 @@ type Choice={analytics:boolean;advertising:boolean};
 const KEY="m2m_privacy_consent_v1";
 function apply(choice:Choice){
   window.gtag?.("consent","update",{analytics_storage:choice.analytics?"granted":"denied",ad_storage:choice.advertising?"granted":"denied",ad_user_data:choice.advertising?"granted":"denied",ad_personalization:choice.advertising?"granted":"denied"});
+  if(choice.analytics)window.gtag?.("event","page_view",{page_title:document.title,page_location:window.location.href,page_path:window.location.pathname});
   localStorage.setItem(KEY,JSON.stringify(choice));
+  window.dispatchEvent(new CustomEvent("m2m:privacy-consent",{detail:choice}));
 }
 declare global{interface Window{gtag?:(...args:unknown[])=>void}}
 export default function PrivacyConsent(){

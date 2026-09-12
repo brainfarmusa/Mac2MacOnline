@@ -3,9 +3,8 @@ import Link from "next/link";
 import {Shell} from "../../../components/SiteShell";
 
 export const metadata:Metadata={
-  title:"Where to Sell Used Server RAM & SSDs in Bulk | Mac2MacOnline",
-  description:"Sell used server RAM, ECC memory and bulk SATA, SAS or NVMe SSDs. Learn what details Mac2MacOnline needs to evaluate your inventory.",
-};
+  title:"Where to Sell Used Server RAM & SSDs in Bulk",
+  description:"Sell used server RAM, ECC memory and bulk SATA, SAS or NVMe SSDs. Learn what details Mac2MacOnline needs to evaluate your inventory.",alternates:{canonical:"/insights/where-to-sell-used-server-ram-and-ssds-in-bulk"}};
 
 export default function ArticlePage(){return <Shell><main className="articlePage"><article>
   <header className="articleHeader"><div className="wrap">

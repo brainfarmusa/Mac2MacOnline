@@ -11,8 +11,10 @@
 .vendorPicker button,.vendorActions button{min-height:43px;padding:10px 15px;border:0;border-radius:8px;background:#167fbd;color:#fff;font-weight:900;cursor:pointer}
 .vendorForm{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:20px}
 .vendorForm label{display:grid;gap:6px;color:#486274;font-size:.75rem;font-weight:900}
+.vendorForm .requiredVendorField{padding:9px;border:1px solid #e5b84b;border-radius:9px;background:#fff8df;color:#6f4d00}.vendorForm .requiredVendorField span b{color:#c73d2b;font-size:1rem}.vendorForm .requiredVendorField input{border-color:#d9a72f;background:#fffdf5}
 .vendorForm .wide{grid-column:1/-1}.vendorActions{grid-column:1/-1;display:flex;align-items:center;gap:10px}
 .vendorActions .cancel{border:1px solid #a9bfcd;background:#fff;color:#406176}.vendorActions small{margin-left:auto;color:#688092}
+.vendorFeedback{margin:12px 0 0;padding:10px 12px;border-radius:8px;font-size:.9rem;font-weight:800}.vendorFeedback.error{border:1px solid #e4a39d;background:#fff0ee;color:#9f2f25}.vendorFeedback.success{border:1px solid #9bcdb1;background:#edf9f2;color:#176b3a}
 .selectedVendor{display:grid;gap:3px;margin-top:15px;padding:13px 15px;border-left:4px solid #35a467;background:#eaf8ef;color:#254e39}
 .selectedVendor span,.selectedVendor small{font-size:.78rem}.uploadDropzone.locked{opacity:.58;background:#edf2f5}.uploadDropzone button:disabled{cursor:not-allowed;opacity:.55}
 @media(max-width:700px){.vendorGate>header,.vendorPicker,.vendorActions{align-items:stretch;flex-direction:column}.vendorForm{grid-template-columns:1fr}.vendorForm .wide{grid-column:auto}.vendorActions small{margin-left:0}}

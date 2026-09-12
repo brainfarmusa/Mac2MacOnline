@@ -4,8 +4,7 @@ import {Shell} from "../../../components/SiteShell";
 
 export const metadata:Metadata={
   title:"Where to Sell Surplus RAM, SSDs, GPUs & Apple Equipment",
-  description:"Sell surplus RAM, SSDs, GPUs, MacBooks, iMacs, iPads, iPhones and Apple service parts to Mac2MacOnline.",
-};
+  description:"Sell surplus RAM, SSDs, GPUs, MacBooks, iMacs, iPads, iPhones and Apple service parts to Mac2MacOnline.",alternates:{canonical:"/insights/sell-surplus-ram-ssds-gpus-apple-equipment"}};
 
 export default function ArticlePage(){return <Shell><main className="articlePage"><article>
   <header className="articleHeader"><div className="wrap">

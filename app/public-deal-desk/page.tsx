@@ -1,29 +1,58 @@
 "use client";
-import {FormEvent,useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {Shell} from "@/components/SiteShell";
+import {buildLotNotes} from "@/lib/bidSpreadsheet";
+import {detectProductCategory} from "@/lib/productCategory";
+import DealViewerPresence from "@/components/DealViewerPresence";
 import "./pdd.css";
 
-type Deal={id:string;deal_number:string;direction:"buying"|"selling";category:string;title:string;description:string;quantity:number;manufacturer:string;part_number:string;closes_at:string;location:string};
-const sampleDeals:Deal[]=[];
+type PublicLine={line?:number;quantity:number;values:Record<string,string>;award_mode?:"single"|"multiple"};
+type Deal={id:string;deal_number:string;direction:"buying"|"selling";category:string;title:string;description:string;quantity:number;manufacturer:string;part_number:string;closes_at:string;location:string;public_lines?:PublicLine[];spreadsheet_filename?:string};
 function formatClose(value:string){return value?new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}).format(new Date(value)):"Open for offers"}
-function detailHref(dealNumber:string){return `/public-deal-desk/${dealNumber.toLowerCase()}`}
-function excelHref(dealNumber:string){return `/public-deal-desk/${dealNumber.toLowerCase()}?download=1`}
+function detailHref(deal:Deal){const path=`/public-deal-desk/${deal.deal_number.toLowerCase()}`;return deal.direction==="buying"?`${path}?sell=1`:path}
+function lotNotes(deal:Deal){const lines=deal.public_lines||[];if(!lines.length)return deal.description||[deal.manufacturer,deal.part_number].filter(Boolean).join(" · ")||"—";const headers=[...new Set(lines.flatMap(line=>Object.keys(line.values)))];return buildLotNotes(lines.length,[...headers.map(header=>({header,value:(index:number)=>lines[index]?.values[header]||""})),{header:"Qty",value:(index:number)=>lines[index]?.quantity||0}])}
+function spreadsheetHref(deal:Deal){return `/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`}
+function productCategory(deal:Deal){const saved=deal.category?.trim();if(saved)return saved;const text=`${deal.title} ${deal.description} ${(deal.public_lines||[]).flatMap(line=>Object.values(line.values)).join(" ")}`;return detectProductCategory(text,"Technology")}
+function dealTitle(deal:Deal){const category=productCategory(deal);const saved=deal.title.replace(/\s+Lot$/i,"");const withoutQuantity=saved.replace(/^(?:qty\.?\s*[:#-]?\s*)?\d[\d,]*\s*(?:-|–|—|\s)\s*(?:pcs?|pieces?|units?)\b\s*(?:of\s+)?/i,"").replace(/^(?:pcs?|pieces?|units?)\s*[:#-]?\s*\d[\d,]*\b\s*/i,"");const verbose=/mixed it equipment/i.test(withoutQuantity)||/^We (?:are|'re) looking to buy\b/i.test(withoutQuantity)||withoutQuantity.length>72;if(verbose&&category!=="Technology")return category==="RAM"?"RAM Memory Modules":category==="SSD"?"Enterprise SSDs":category;return withoutQuantity}
+
+function DealSection({title,subtitle,deals,emptyText,tone}:{title:string;subtitle:string;deals:Deal[];emptyText:string;tone:"wtb"|"wts"}){
+ return <section className={`pddDealSection ${tone}`}>
+  <header className="pddDealSectionHeader"><div><span>{tone.toUpperCase()}</span><h2>{title}</h2><p>{subtitle}</p></div><strong>{deals.length} active {deals.length===1?"deal":"deals"}</strong></header>
+  {deals.length?<div className="pddDealTable"><div className="pddDealHead"><span>Type / category</span><span>Deal</span><span>Inventory</span><span>Qty</span><span>Closing</span><span>Lot notes</span><span>Actions</span></div>{deals.map(deal=><article key={deal.id}><div className="pddDealType"><b className={deal.direction}>{deal.direction==="selling"?"For Sale":"Want to Buy"}</b><span>{productCategory(deal)}</span></div><a className="pddDealNumber" href={detailHref(deal)}>{deal.deal_number}</a><div className="pddDealInventory"><h2>{dealTitle(deal)}</h2></div><strong className="pddDealQty">{deal.quantity.toLocaleString()}</strong><time>{formatClose(deal.closes_at)}</time><p className="pddLotNotes">{lotNotes(deal)}</p><div className="pddDealActions"><a href={detailHref(deal)}>{deal.direction==="buying"?"Respond to WTB →":"View / Bid →"}</a>{deal.direction==="selling"&&<a href={spreadsheetHref(deal)}>Download XLSX ↓</a>}</div></article>)}</div>:<div className="pddSectionEmpty"><p>{emptyText}</p></div>}
+ </section>
+}
 
 export default function PublicDealDesk(){
  const [direction,setDirection]=useState("all");
  const [query,setQuery]=useState("");
- const [selected,setSelected]=useState<Deal|null>(null);
- const [notice,setNotice]=useState("");
- const [allDeals,setAllDeals]=useState<Deal[]>(sampleDeals);
+ const [allDeals,setAllDeals]=useState<Deal[]>([]);
  const [live,setLive]=useState(false);
- const [submitting,setSubmitting]=useState(false);
- useEffect(()=>{let active=true;fetch("/api/deals").then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(active&&Array.isArray(data.deals)&&data.deals.length){setAllDeals([...sampleDeals,...data.deals.filter((deal:Deal)=>!sampleDeals.some(sample=>sample.deal_number===deal.deal_number))]);setLive(true)}}).catch(()=>{});return()=>{active=false}},[]);
+ const [updated,setUpdated]=useState("");
+ useEffect(()=>{let active=true;fetch("/api/deals").then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(active&&Array.isArray(data.deals)){setAllDeals(data.deals);setLive(true);setUpdated(new Date().toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}))}}).catch(()=>{});return()=>{active=false}},[]);
  const deals=useMemo(()=>allDeals.filter(deal=>{const haystack=`${deal.deal_number} ${deal.category} ${deal.title} ${deal.description} ${deal.manufacturer} ${deal.part_number}`.toLowerCase();return(direction==="all"||deal.direction===direction)&&haystack.includes(query.toLowerCase())}),[allDeals,direction,query]);
- async function submitBid(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!selected)return;setSubmitting(true);setNotice("");const form=event.currentTarget;const body=new FormData(form);body.set("deal_id",selected.id);try{const response=await fetch("/api/bids",{method:"POST",body});const data=await response.json();if(!response.ok)throw new Error(data.error||"Your offer could not be submitted.");setNotice(`Offer ${data.bid_number} was received confidentially. Mac2MacOnline will contact you if it is shortlisted or awarded.`);form.reset()}catch(error){setNotice(error instanceof Error?error.message:"Your offer could not be submitted. Please try again.")}finally{setSubmitting(false)}}
- return <Shell><main className="pdd">
-  <section className="pddHero"><div><p className="pddEyebrow">MAC2MACONLINE PUBLIC DEAL DESK</p><h1>Wholesale technology deals, <span>open to qualified partners.</span></h1><p className="pddLead">Review active buying requests and available inventory, submit your offer securely and complete awarded purchases through Mac2MacOnline.</p><div className="pddActions"><a className="pddPrimary" href="#pdd-deals">View Open Deals</a><a className="pddSecondary" href="#pdd-process">How Awards Work</a></div><div className="pddTrust"><span>R2v3 Certified</span><span>ISO 9001</span><span>ISO 14001</span><span>ISO 45001</span></div></div><aside className="pddProcess"><p className="pddEyebrow">FROM BID TO ORDER</p><ol><li><b>Find a deal</b><span>Search buying requests and available lots.</span></li><li><b>Submit your offer</b><span>Include price, quantity, condition and timing.</span></li><li><b>Receive an award</b><span>Winning bidders receive private purchase instructions.</span></li><li><b>Complete securely</b><span>Confirm shipping and payment with Mac2MacOnline.</span></li></ol></aside></section>
-  <section className="pddDeals" id="pdd-deals"><div className="pddHeading"><div><p className="pddEyebrow">CURRENT OPPORTUNITIES</p><h2>Public Deal Desk</h2><p>All deadlines are shown in Pacific Time unless the deal states otherwise.</p></div><div className="pddLive"><i/>{live?"Live deal feed":"Beta deal data"}</div></div><div className="pddControls"><div className="pddSegments"><button className={direction==="all"?"active":""} onClick={()=>setDirection("all")}>All deals</button><button className={direction==="selling"?"active":""} onClick={()=>setDirection("selling")}>Inventory for sale</button><button className={direction==="buying"?"active":""} onClick={()=>setDirection("buying")}>Wanted inventory</button></div><label className="pddSearch"><span>Search</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Part number, category or keyword"/></label></div><div className="pddGrid">{deals.map(deal=>{const href=detailHref(deal.deal_number);const download=excelHref(deal.deal_number);return <article className="pddCard" key={deal.id}><div className="pddMeta"><span className={deal.direction}>{deal.direction==="selling"?"For Sale":"Want to Buy"}</span><b>{deal.deal_number}</b></div><p className="pddCategory">{deal.category}</p><h3>{deal.title}</h3><p className="pddDescription">{deal.description}</p><dl><div><dt>Manufacturer</dt><dd>{deal.manufacturer}</dd></div><div><dt>Part number</dt><dd>{deal.part_number}</dd></div><div><dt>Quantity</dt><dd>{deal.quantity.toLocaleString()}</dd></div><div><dt>Location</dt><dd>{deal.location}</dd></div></dl><div className="pddDeadline"><span>{deal.closes_at?"Offers close":"Status"}</span><strong>{formatClose(deal.closes_at)}</strong></div><div className="pddCardActions">{href?<a className="pddCardButton" href={href}>Enter Line-Item Offer</a>:<button className="pddCardButton" onClick={()=>{setSelected(deal);setNotice("")}}>{deal.direction==="selling"?"Submit an offer":"Offer this inventory"}</button>}{download&&<a className="pddDownload" href={download}>Download Excel</a>}</div></article>})}</div>{!deals.length&&<div className="pddEmpty"><h3>No matching deals</h3><p>Try a broader search or view all deal types.</p></div>}</section>
-  <section className="pddHow" id="pdd-process"><div><p className="pddEyebrow">AWARD PROCESS</p><h2>Private pricing. Clear awards. Secure fulfillment.</h2><p>Offers remain private. Mac2MacOnline validates each bidder, selects an offer and sends the awarded party the exact quantities, pricing, shipping and payment terms.</p></div><div className="pddFlow"><article><b>01</b><h3>Review</h3><p>We validate the bidder, offer and delivery requirements.</p></article><article><b>02</b><h3>Award</h3><p>The winning offer is accepted for a limited confirmation period.</p></article><article><b>03</b><h3>Order</h3><p>Final order, shipping and payment instructions are issued.</p></article><article><b>04</b><h3>Close</h3><p>The completed opportunity is archived in the Deal Desk.</p></article></div></section>
-  {selected&&<div className="pddBackdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="pddModal" role="dialog" aria-modal="true" aria-labelledby="pdd-bid-title"><button className="pddClose" aria-label="Close" onClick={()=>setSelected(null)}>×</button><p className="pddEyebrow">{selected.deal_number}</p><h2 id="pdd-bid-title">{selected.direction==="selling"?"Submit an offer":"Offer your inventory"}</h2><p>{selected.title}</p><form onSubmit={submitBid}><div className="pddFormGrid"><label>Company<input required name="company"/></label><label>Contact name<input required name="contact"/></label><label>Email<input required type="email" name="email"/></label><label>Phone<input required name="phone" inputMode="tel" placeholder="+1 530-555-1234"/></label><label>Quantity<input required type="number" min="1" name="quantity"/></label><label>Unit price<input required type="number" min="0" step="0.01" name="unit_price"/></label></div><label>Condition, timing and notes<textarea required name="notes" rows={4}/></label><label>Supporting file<input type="file" name="attachment" accept=".pdf,.xls,.xlsx,.csv,.jpg,.jpeg,.png"/><small>Spreadsheet, PDF or clear product-label photographs, up to 10 MB.</small></label><button className="pddPrimary pddSubmit" type="submit" disabled={submitting}>{submitting?"Submitting securely…":"Submit confidential offer"}</button>{notice&&<p className="pddNotice">{notice}</p>}</form></section></div>}
- </main></Shell>
+ const wtbDeals=deals.filter(deal=>deal.direction==="buying");
+ const wtsDeals=deals.filter(deal=>deal.direction==="selling");
+ const categories=useMemo(()=>new Set(allDeals.map(productCategory).filter(Boolean)).size,[allDeals]);
+ return <Shell><main className="pdd pddInventoryPage"><section className="pddBoard">
+  <header className="pddBoardHeader"><img src="/assets/m2m-logo-transparent.png" alt="Mac2MacOnline"/><div className="pddBoardTitle"><span>Live Bid Board</span><h1>Live M2M Deals.</h1><p>Review current inventory, download the bid sheet or submit an offer online.</p></div><div className="pddBoardStats"><div><strong>{live?allDeals.length:"—"}</strong><span>Active deals</span></div><div><strong>{live?categories:"—"}</strong><span>Categories</span></div><div><strong className="pddLiveWord">LIVE</strong><span>M2M feed</span></div><DealViewerPresence dealNumber="PUBLIC-DEAL-DESK" scopeLabel="this page"/></div></header>
+  <div className="pddBoardUpdated">◷ Updated {updated||"loading current M2M deals…"}</div>
+  <div className="pddCompactControls"><div className="pddSegments"><button className={direction==="all"?"active":""} onClick={()=>setDirection("all")}>All deals</button><button className={direction==="selling"?"active":""} onClick={()=>setDirection("selling")}>For sale</button><button className={direction==="buying"?"active":""} onClick={()=>setDirection("buying")}>Want to buy</button></div><label><span>Search deals</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Deal, product, category or part number"/></label></div>
+  <p className="pddBoardStatus">{live?`Showing ${deals.length} of ${allDeals.length} current M2M deals.`:"Loading current M2M deals…"}</p>
+  {live&&<div className="pddDealSections">
+   {direction!=="buying"&&<DealSection
+    tone="wts"
+    title="Want to Sell"
+    subtitle="Inventory Mac2MacOnline currently has available for customer offers."
+    deals={wtsDeals}
+    emptyText={query?"No Want to Sell deals match your search.":"There are no active Want to Sell deals right now."}
+   />}
+   {direction!=="selling"&&<DealSection
+    tone="wtb"
+    title="Want to Buy"
+    subtitle="Equipment Mac2MacOnline is actively looking to purchase."
+    deals={wtbDeals}
+    emptyText={query?"No Want to Buy deals match your search.":"There are no active Want to Buy deals right now."}
+   />}
+  </div>}
+ </section></main></Shell>
 }

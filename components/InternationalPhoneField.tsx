@@ -2,7 +2,8 @@
 
 import {useEffect,useRef,useState} from "react";
 
-export const phoneCountries=[
+// Keep every user-facing dropdown alphabetized by its visible label.
+const unsortedPhoneCountries=[
   ["US","🇺🇸","United States","1"],["CA","🇨🇦","Canada","1"],["MX","🇲🇽","Mexico","52"],["GB","🇬🇧","United Kingdom","44"],["IE","🇮🇪","Ireland","353"],
   ["AU","🇦🇺","Australia","61"],["NZ","🇳🇿","New Zealand","64"],["DE","🇩🇪","Germany","49"],["FR","🇫🇷","France","33"],["ES","🇪🇸","Spain","34"],
   ["IT","🇮🇹","Italy","39"],["NL","🇳🇱","Netherlands","31"],["BE","🇧🇪","Belgium","32"],["CH","🇨🇭","Switzerland","41"],["AT","🇦🇹","Austria","43"],
@@ -17,22 +18,36 @@ export const phoneCountries=[
   ["CL","🇨🇱","Chile","56"],["CO","🇨🇴","Colombia","57"],["PE","🇵🇪","Peru","51"],["EC","🇪🇨","Ecuador","593"],["UY","🇺🇾","Uruguay","598"],
   ["CR","🇨🇷","Costa Rica","506"],["PA","🇵🇦","Panama","507"],["DO","🇩🇴","Dominican Republic","1"],["JM","🇯🇲","Jamaica","1"],["PR","🇵🇷","Puerto Rico","1"]
 ] as const;
+export const phoneCountries=[...unsortedPhoneCountries].sort((a,b)=>a[2].localeCompare(b[2]));
+
+export function formatPhoneNumber(value:string,countryOrCode="US"){
+  const selected=phoneCountries.find(item=>item[0]===countryOrCode||item[2]===countryOrCode)||phoneCountries.find(item=>item[0]==="US")!;
+  let digits=value.replace(/\D/g,"");
+  if(value.trim().startsWith("+")&&digits.startsWith(selected[3]))digits=digits.slice(selected[3].length);
+  const code=selected[0];
+  if(["US","CA","PR","DO","JM"].includes(code)){
+    const d=digits.slice(0,10);if(d.length<4)return d;if(d.length<7)return `(${d.slice(0,3)}) ${d.slice(3)}`;return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+  }
+  if(code==="MX"){const d=digits.slice(0,10);return [d.slice(0,2),d.slice(2,6),d.slice(6)].filter(Boolean).join(" ")}
+  if(code==="GB"){const d=digits.slice(0,11);return [d.slice(0,4),d.slice(4,7),d.slice(7)].filter(Boolean).join(" ")}
+  if(["AU","NZ"].includes(code)){const d=digits.slice(0,10);return [d.slice(0,4),d.slice(4,7),d.slice(7)].filter(Boolean).join(" ")}
+  return digits.slice(0,15).replace(/(\d{3})(?=\d)/g,"$1 ");
+}
 
 export default function InternationalPhoneField({required=false,name="Phone",initialValue=""}:{required?:boolean;name?:string;initialValue?:string}){
   const [country,setCountry]=useState("US");
   const [number,setNumber]=useState("");
   const shell=useRef<HTMLDivElement>(null);
   const selected=phoneCountries.find(item=>item[0]===country)||phoneCountries[0];
-  const formatNumber=(value:string,code=country)=>{const digits=value.replace(/\D/g,"");if(["US","CA","PR","DO","JM"].includes(code)){const d=digits.slice(0,10);if(d.length<4)return d;if(d.length<7)return `(${d.slice(0,3)}) ${d.slice(3)}`;return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`}if(code==="MX"){const d=digits.slice(0,10);return [d.slice(0,2),d.slice(2,6),d.slice(6)].filter(Boolean).join(" ")}if(code==="GB"){const d=digits.slice(0,11);return [d.slice(0,4),d.slice(4,7),d.slice(7)].filter(Boolean).join(" ")}if(["AU","NZ"].includes(code)){const d=digits.slice(0,10);return [d.slice(0,4),d.slice(4,7),d.slice(7)].filter(Boolean).join(" ")}return digits.slice(0,15).replace(/(\d{3})(?=\d)/g,"$1 ")};
-  useEffect(()=>{if(initialValue)setNumber(formatNumber(initialValue.replace(/^\+\d{1,3}\s*/,"")))},[initialValue]);
+  useEffect(()=>{if(initialValue)setNumber(formatPhoneNumber(initialValue,country))},[initialValue,country]);
   useEffect(()=>{const form=shell.current?.closest("form");if(!form)return;const reset=()=>{setCountry("US");setNumber("")};form.addEventListener("reset",reset);return()=>form.removeEventListener("reset",reset)},[]);
   const local=number.trim();
   const international=local?(local.startsWith("+")?local:`+${selected[3]} ${local}`):"";
   return <label>Phone<div className="international-phone" ref={shell}>
-    <select aria-label="Phone country" name="Phone country" value={country} onChange={event=>{const next=event.target.value;setCountry(next);setNumber(current=>formatNumber(current,next))}}>
+    <select aria-label="Phone country" name="Phone country" value={country} onChange={event=>{const next=event.target.value;setCountry(next);setNumber(current=>formatPhoneNumber(current,next))}}>
       {phoneCountries.map(([code,flag,countryName,dial])=><option key={code} value={code}>{flag} {countryName} (+{dial})</option>)}
     </select>
-    <input aria-label="International phone number" required={required} type="tel" inputMode="tel" autoComplete="tel-national" placeholder={["US","CA","PR","DO","JM"].includes(country)?"(555) 555-5555":"Phone number"} value={number} onChange={event=>setNumber(formatNumber(event.target.value))}/>
+    <input aria-label="International phone number" required={required} type="tel" inputMode="tel" autoComplete="tel-national" placeholder={["US","CA","PR","DO","JM"].includes(country)?"(555) 555-5555":"Phone number"} value={number} onChange={event=>setNumber(formatPhoneNumber(event.target.value,country))}/>
     <input type="hidden" name={name} value={international}/>
   </div><small className="phone-help">{selected[1]} {selected[2]} · International code +{selected[3]}</small></label>
 }

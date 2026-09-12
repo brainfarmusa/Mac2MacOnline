@@ -1,4 +1,123 @@
-import type {Metadata} from "next";import "./globals.css";import ConversionTracker from "../components/ConversionTracker";import PrivacyConsent from "../components/PrivacyConsent";
-export const metadata:Metadata={metadataBase:new URL("https://www.mac2maconline.com"),title:{default:"Mac2MacOnline | Used IT Equipment & Technology Remarketing",template:"%s | Mac2MacOnline"},description:"Buy, sell, consign and responsibly recover used computers, Apple systems, servers, networking equipment and enterprise IT inventory.",icons:{icon:[{url:"/favicon-v6.ico",type:"image/x-icon",sizes:"any"},{url:"/favicon-v6.svg",type:"image/svg+xml"},{url:"/favicon-v6.png",type:"image/png",sizes:"512x512"}],shortcut:"/favicon-v6.ico",apple:[{url:"/favicon-v6.png",sizes:"512x512",type:"image/png"}]},openGraph:{title:"Mac2MacOnline | Used IT Equipment & Technology Remarketing",description:"Buy, sell, consign and recover business and enterprise technology worldwide.",url:"https://www.mac2maconline.com",siteName:"Mac2MacOnline",type:"website"},twitter:{card:"summary_large_image",title:"Mac2MacOnline",description:"Wholesale technology remarketing and responsible asset recovery."}};
-const structuredData={"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://www.mac2maconline.com/#organization",name:"Mac2MacOnline",url:"https://www.mac2maconline.com",logo:"https://www.mac2maconline.com/assets/m2m-logo-transparent.png",email:"sales@mac2maconline.com",areaServed:"Worldwide",contactPoint:{"@type":"ContactPoint",contactType:"sales",email:"sales@mac2maconline.com",availableLanguage:"English"},knowsAbout:["Used IT equipment","Technology remarketing","IT asset recovery","Computer consignment","Enterprise hardware","Apple computers","RAM","SSDs","GPUs","Servers and networking","R2v3 electronics reuse"]},{"@type":"WebSite","@id":"https://www.mac2maconline.com/#website",url:"https://www.mac2maconline.com",name:"Mac2MacOnline",publisher:{"@id":"https://www.mac2maconline.com/#organization"}},{"@type":"Service",name:"Technology remarketing and IT equipment purchasing",provider:{"@id":"https://www.mac2maconline.com/#organization"},areaServed:"Worldwide",serviceType:["Purchase used computers and components","Technology remarketing","IT equipment consignment","Responsible electronics recovery"]}]};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><head><script dangerouslySetInnerHTML={{__html:"window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'granted',security_storage:'granted',wait_for_update:500});gtag('js',new Date());gtag('config','G-RQ844FDHK4',{anonymize_ip:true});"}}/><script async src="https://www.googletagmanager.com/gtag/js?id=G-RQ844FDHK4"/></head><body><script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(structuredData)}}/><ConversionTracker/><PrivacyConsent/>{children}</body></html>}
+import type { Metadata } from "next";
+import "./globals.css";
+import "./seller-funnel.css";
+import ConversionTracker from "../components/ConversionTracker";
+import PrivacyConsent from "../components/PrivacyConsent";
+import LorraineChat from "../components/LorraineChat";
+export const metadata: Metadata = {
+  metadataBase: new URL("https://www.mac2maconline.com"),
+  title: {
+    default: "Mac2MacOnline | Used IT Equipment & Technology Remarketing",
+    template: "%s | Mac2MacOnline",
+  },
+  description:
+    "Buy, sell, consign and responsibly recover used computers, Apple systems, servers, networking equipment and enterprise IT inventory.",
+  alternates: { canonical: "/" },
+  icons: {
+    icon: [
+      { url: "/favicon-v6.ico", type: "image/x-icon", sizes: "any" },
+      { url: "/favicon-v6.svg", type: "image/svg+xml" },
+      { url: "/favicon-v6.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon-v6.ico",
+    apple: [{ url: "/favicon-v6.png", sizes: "512x512", type: "image/png" }],
+  },
+  openGraph: {
+    title: "Mac2MacOnline | Used IT Equipment & Technology Remarketing",
+    description:
+      "Buy, sell, consign and recover business and enterprise technology worldwide.",
+    url: "https://www.mac2maconline.com",
+    siteName: "Mac2MacOnline",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mac2MacOnline",
+    description:
+      "Wholesale technology remarketing and responsible asset recovery.",
+  },
+};
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.mac2maconline.com/#organization",
+      name: "Mac2MacOnline",
+      url: "https://www.mac2maconline.com",
+      logo: "https://www.mac2maconline.com/assets/m2m-logo-transparent.png",
+      email: "sales@mac2maconline.com",
+      areaServed: "Worldwide",
+      contactPoint: {
+        "@type": "ContactPoint",
+        contactType: "sales",
+        email: "sales@mac2maconline.com",
+        availableLanguage: "English",
+      },
+      knowsAbout: [
+        "Used IT equipment",
+        "Technology remarketing",
+        "IT asset recovery",
+        "Computer consignment",
+        "Enterprise hardware",
+        "Apple computers",
+        "RAM",
+        "SSDs",
+        "GPUs",
+        "Servers and networking",
+        "R2v3 electronics reuse",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.mac2maconline.com/#website",
+      url: "https://www.mac2maconline.com",
+      name: "Mac2MacOnline",
+      publisher: { "@id": "https://www.mac2maconline.com/#organization" },
+    },
+    {
+      "@type": "Service",
+      name: "Technology remarketing and IT equipment purchasing",
+      provider: { "@id": "https://www.mac2maconline.com/#organization" },
+      areaServed: "Worldwide",
+      serviceType: [
+        "Purchase used computers and components",
+        "Technology remarketing",
+        "IT equipment consignment",
+        "Responsible electronics recovery",
+      ],
+    },
+  ],
+};
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'granted',security_storage:'granted',wait_for_update:500});gtag('js',new Date());gtag('config','G-48QQRY8XE2',{anonymize_ip:true,send_page_view:false});",
+          }}
+        />
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-48QQRY8XE2"
+        />
+      </head>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+        <ConversionTracker />
+        <PrivacyConsent />
+        {children}
+        <LorraineChat />
+      </body>
+    </html>
+  );
+}

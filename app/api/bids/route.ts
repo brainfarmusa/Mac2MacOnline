@@ -8,7 +8,7 @@ const clean=(value:FormDataEntryValue|null)=>typeof value==="string"?value.trim(
 const safeName=(value:string)=>value.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"attachment";
 
 export async function POST(request:Request){
-  if(!supabaseReady())return Response.json({error:"The live Deal Desk is being connected. Please try again after setup is complete."},{status:503});
+  if(!supabaseReady())return Response.json({error:"The Live Bid Board is being connected. Please try again after setup is complete."},{status:503});
   try{
     const form=await request.formData();
     const dealId=clean(form.get("deal_id"));
@@ -27,7 +27,7 @@ export async function POST(request:Request){
       if(!ALLOWED_TYPES.has(attachment.type))return Response.json({error:"Please attach a PDF, spreadsheet, CSV, JPG or PNG file."},{status:400});
     }
     const id=crypto.randomUUID();
-    const bidNumber=`PDD-BID-${Date.now().toString(36).toUpperCase()}`;
+    const bidNumber=`LBB-BID-${Date.now().toString(36).toUpperCase()}`;
     const attachmentPath=attachment instanceof File&&attachment.size?`${id}/${safeName(attachment.name)}`:null;
     const bid={id,bid_number:bidNumber,deal_id:dealId,company,contact_name:contactName,email,phone,quantity,unit_price:unitPrice,notes,attachment_path:attachmentPath,status:"submitted"};
     const inserted=await supabaseRequest("/rest/v1/pdd_bids",{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(bid)});

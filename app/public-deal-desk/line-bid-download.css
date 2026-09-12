@@ -1,8 +1,206 @@
-.lineBidHero>.lineBidHeroNav{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:0}
-.lineBidHeroNav>a{color:#79ccf7;font-weight:800;text-decoration:none}.lineBidHeroNav button{font:inherit;cursor:pointer}
-.lineBidHeroNav .lineBidDownload{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid #5eadd8;border-radius:9px;background:#0e3c60;color:#fff;font-size:.82rem}
-.lineBidDownload:before{content:"↓";margin-right:7px}
-.lineBidDownload:hover{background:#15517d}
-.lineBidDownload:disabled,.lineItemsDownload:disabled,.sheetActions button:disabled{opacity:.5;cursor:not-allowed}.lineItemsTools{display:flex;align-items:center;gap:14px}.lineItemsDownload{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:0;border-radius:8px;background:#0d3559;color:#fff;font-size:.8rem;font-weight:850;text-decoration:none;white-space:nowrap;cursor:pointer}.lineItemsDownload:before{content:"↓";margin-right:7px}.lineItemsDownload:hover{background:#15517d}
-.bidMethod{display:grid;grid-template-columns:.75fr 1.25fr;gap:18px;margin:20px 0}.bidMethod>div{padding:22px;border:1px solid #cbdbe6;border-radius:14px;background:#fff}.bidMethod span{color:#2586bd;font-size:.7rem;font-weight:900;letter-spacing:.12em}.bidMethod h2{margin:5px 0 7px;font-size:1.25rem}.bidMethod p{margin:0;color:#607488;line-height:1.5}.sheetActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:17px}.sheetActions button,.sheetActions label{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border:0;border-radius:8px;background:#0d3559;color:#fff;font-size:.78rem;font-weight:850;cursor:pointer}.sheetActions label{background:#238fca}.sheetActions input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.sheetImportNotice{margin:14px 0;padding:14px 17px;border-left:4px solid #2a9b62;background:#e9f8f0;color:#145b39;font-weight:750}
-@media(max-width:700px){.bidMethod{grid-template-columns:1fr}}@media(max-width:600px){.lineBidHero>.lineBidHeroNav{align-items:flex-start;flex-direction:column}.lineBidHeroNav .lineBidDownload{width:100%}}
+.lineBidHero > .lineBidHeroNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 0;
+}
+.lineBidHeroNav > a {
+  color: #79ccf7;
+  font-weight: 800;
+  text-decoration: none;
+}
+.lineBidHeroNav button {
+  font: inherit;
+  cursor: pointer;
+}
+.lineBidHeroNav .lineBidDownload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 1px solid #5eadd8;
+  border-radius: 9px;
+  background: #0e3c60;
+  color: #fff;
+  font-size: 0.82rem;
+}
+.lineBidHeroTools,.dealViewerPresence,.dealViewerStack{display:flex;align-items:center}.lineBidHeroTools{gap:14px}.dealViewerPresence{gap:8px;color:#d9edf8}.dealViewerPresence>strong{font-size:.76rem;white-space:nowrap}.dealViewerStack{padding-left:8px}.dealViewerStack span,.dealViewerStack b{display:grid;width:27px;height:27px;margin-left:-8px;place-items:center;border:2px solid #0d3559;border-radius:50%;color:#071629;font-size:.68rem;font-weight:900;box-shadow:0 2px 7px #0003}.dealViewerStack b{background:#d9edf8;color:#0d3559}
+.lineBidDownload:before {
+  content: "↓";
+  margin-right: 7px;
+}
+.lineBidDownload:hover {
+  background: #15517d;
+}
+.lineBidDownload:disabled,
+.lineItemsDownload:disabled,
+.sheetActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.lineItemsTools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lineItemsDownload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #0d3559;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lineItemsDownload:before {
+  content: "↓";
+  margin-right: 7px;
+}
+.lineItemsDownload:hover {
+  background: #15517d;
+}
+.bidMethod {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin: 20px 0;
+}
+.bidMethod > div {
+  padding: 22px;
+  border: 1px solid #cbdbe6;
+  border-radius: 14px;
+  background: #fff;
+}
+.bidMethod > .selectedBidMethod {
+  border: 2px solid #2478b9;
+  background: #eef8ff;
+}
+.bidMethod > div > button,
+.bidMethod > div > a {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #176db6;
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+  text-decoration: none;
+}
+.bidMethod > .customerBidMethod{border-color:#8bb7d6;background:#f5faff}
+.takeAllPanel {
+  margin: 16px 0;
+  padding: 20px;
+  border: 2px solid #2478b9;
+  border-radius: 12px;
+  background: #eef8ff;
+}
+.takeAllPanel h2 {
+  margin: 0 0 6px;
+}
+.takeAllPanel p {
+  max-width: 850px;
+  color: #435d73;
+  line-height: 1.5;
+}
+.takeAllPanel label {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  font-weight: 850;
+}
+.takeAllInput {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #8fb4ce;
+  border-radius: 8px;
+  background: #fff;
+}
+.takeAllInput input {
+  width: 100%;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+}
+.bidMethod span {
+  color: #2586bd;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.bidMethod h2 {
+  margin: 5px 0 7px;
+  font-size: 1.25rem;
+}
+.bidMethod p {
+  margin: 0;
+  color: #607488;
+  line-height: 1.5;
+}
+.sheetActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 17px;
+}
+.sheetActions button,
+.sheetActions a,
+.sheetActions label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #0d3559;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+.sheetActions label {
+  background: #238fca;
+}
+.sheetActions input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.sheetImportNotice {
+  margin: 14px 0;
+  padding: 14px 17px;
+  border-left: 4px solid #2a9b62;
+  background: #e9f8f0;
+  color: #145b39;
+  font-weight: 750;
+}
+@media (max-width: 700px) {
+  .bidMethod {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .lineBidHero > .lineBidHeroNav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .lineBidHeroNav .lineBidDownload {
+    width: 100%;
+  }
+  .lineBidHeroTools{width:100%;align-items:flex-start;flex-direction:column}.dealViewerPresence{align-self:flex-end}
+}

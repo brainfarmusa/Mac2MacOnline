@@ -1,0 +1,13 @@
+.bidderAccountActions button {
+  display: inline-flex;
+  justify-content: center;
+  padding: 9px 11px;
+  border: 1px solid #1d6fb8;
+  border-radius: 8px;
+  background: #1d6fb8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}

@@ -18,11 +18,20 @@ Deno.serve(async(req:Request)=>{
     if(!access)return new Response(JSON.stringify({ok:true}),{headers});
     if(access.invited_at&&Date.now()-new Date(access.invited_at).getTime()<15*60*1000)return new Response(JSON.stringify({ok:true}),{headers});
     const safeRedirect=typeof redirectTo==="string"&&[...allowedOrigins].some(origin=>redirectTo.startsWith(`${origin}/`))?redirectTo:`${sitesOrigin}/employee-login`;
-    const {error:inviteError}=await supabase.auth.admin.inviteUserByEmail(normalizedEmail,{redirectTo:safeRedirect,data:{display_name:normalizedEmail.split("@")[0]}});
-    if(inviteError&&/already|registered|exists/i.test(inviteError.message)){
+    let accountExists=false;
+    for(let page=1;page<=10&&!accountExists;page++){
+      const {data,error}=await supabase.auth.admin.listUsers({page,perPage:100});
+      if(error)throw error;
+      accountExists=data.users.some(user=>user.email?.toLowerCase()===normalizedEmail);
+      if(data.users.length<100)break;
+    }
+    if(accountExists){
       const {error:recoveryError}=await supabase.auth.resetPasswordForEmail(normalizedEmail,{redirectTo:safeRedirect});
       if(recoveryError)throw recoveryError;
-    }else if(inviteError)throw inviteError;
+    }else{
+      const {error:inviteError}=await supabase.auth.admin.inviteUserByEmail(normalizedEmail,{redirectTo:safeRedirect,data:{display_name:normalizedEmail.split("@")[0]}});
+      if(inviteError)throw inviteError;
+    }
     await supabase.from("pdd_employee_access").update({invited_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("email",normalizedEmail);
     return new Response(JSON.stringify({ok:true}),{headers});
   }catch(error){console.error(error);return new Response(JSON.stringify({error:"Unable to send the activation email right now."}),{status:500,headers})}

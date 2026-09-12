@@ -17,16 +17,27 @@ const encodePath=(path:string)=>path.split("/").map(encodeURIComponent).join("/"
 export async function GET(request:Request){
   const employee=await employeeUser(request);if(!employee)return Response.json({error:"Employee access required."},{status:401});
   const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");
-  const columns="id,source_upload_id,deal_number,title,description,quantity,closes_at,location,public_lines,status,published,created_by,created_at,updated_at";
+  const now=new Date().toISOString();
+  const expiredResponse=await upstream(`/rest/v1/pdd_public_deals?select=id,closes_at,updated_at&status=eq.open&closes_at=lte.${encodeURIComponent(now)}`,token);
+  if(expiredResponse.ok){
+    const expired=await expiredResponse.json() as {id:string;closes_at:string;updated_at:string}[];
+    await Promise.all(expired.filter(deal=>!deal.updated_at||new Date(deal.updated_at).getTime()<=new Date(deal.closes_at).getTime()).map(deal=>upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(deal.id)}`,token,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({status:"working",published:true,updated_at:now})})));
+  }
+  await upstream("/rest/v1/pdd_public_deals?status=in.(open,working,pending)&published=eq.false",token,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({published:true})});
+  const columns="id,source_upload_id,deal_number,direction,category,title,description,quantity,closes_at,location,public_lines,status,published,created_by,created_at,updated_at";
   const response=await upstream(`/rest/v1/pdd_public_deals?select=${columns}&order=created_at.desc`,token);
   if(!response.ok)return Response.json({error:"Deals could not be loaded."},{status:502});
   const deals=await response.json() as Array<Record<string,unknown>&{source_upload_id?:string|null}>;
-  const uploadIds=deals.map(deal=>deal.source_upload_id).filter(Boolean) as string[];const owners=new Map<string,{name:string;email:string}>();
-  if(uploadIds.length){const uploadResponse=await upstream(`/rest/v1/pdd_deal_uploads?select=id,employee_email&id=in.(${uploadIds.map(encodeURIComponent).join(",")})`,token);if(uploadResponse.ok){const uploads=await uploadResponse.json() as {id:string;employee_email:string}[];let names=new Map<string,string>();const profileResponse=await upstream("/rest/v1/pdd_employee_access?select=email,display_name",token);if(profileResponse.ok)names=new Map((await profileResponse.json() as {email:string;display_name:string}[]).map(profile=>[profile.email,profile.display_name]));for(const upload of uploads)owners.set(upload.id,{name:names.get(upload.employee_email)||upload.employee_email,email:upload.employee_email})}}
-  const ownedDeals=deals.map(deal=>{const owner=deal.source_upload_id?owners.get(deal.source_upload_id):undefined;return {...deal,owner_name:owner?.name||"Unassigned",owner_email:owner?.email||""}});
+  const uploadIds=deals.map(deal=>deal.source_upload_id).filter(Boolean) as string[];const owners=new Map<string,{name:string;email:string;vendor:string;lineCount:number;tabCount:number}>();
+  if(uploadIds.length){const uploadResponse=await upstream(`/rest/v1/pdd_deal_uploads?select=id,employee_email,column_mapping,quantified_line_count,vendor:pdd_vendors(company_name)&id=in.(${uploadIds.map(encodeURIComponent).join(",")})`,token);if(uploadResponse.ok){const uploads=await uploadResponse.json() as {id:string;employee_email:string;column_mapping?:{sheets?:{names?:string[]}}|null;quantified_line_count?:number|null;vendor:{company_name:string}|null}[];let names=new Map<string,string>();const profileResponse=await upstream("/rest/v1/pdd_employee_access?select=email,display_name",token);if(profileResponse.ok)names=new Map((await profileResponse.json() as {email:string;display_name:string}[]).map(profile=>[profile.email,profile.display_name]));for(const upload of uploads){const sheetNames=upload.column_mapping?.sheets?.names;owners.set(upload.id,{name:names.get(upload.employee_email)||upload.employee_email,email:upload.employee_email,vendor:upload.vendor?.company_name||"Unassigned",lineCount:Number(upload.quantified_line_count||0),tabCount:Array.isArray(sheetNames)&&sheetNames.length?sheetNames.length:1})}}}
+  const ownedDeals=deals.map(deal=>{const owner=deal.source_upload_id?owners.get(deal.source_upload_id):undefined;const publicLineCount=Array.isArray(deal.public_lines)?deal.public_lines.length:0;return {...deal,owner_name:owner?.name||"Unassigned",owner_email:owner?.email||"",vendor_name:owner?.vendor||"Unassigned",line_count:owner?.lineCount||publicLineCount||1,tab_count:owner?.tabCount||1}});
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS deal_notification_owners (deal_number TEXT PRIMARY KEY,employee_email TEXT NOT NULL,updated_by TEXT NOT NULL,updated_at TEXT NOT NULL)").run();
+  const notificationOwners=ownedDeals.filter(deal=>deal.owner_email&&deal.deal_number).map(deal=>env.DB.prepare("INSERT INTO deal_notification_owners (deal_number,employee_email,updated_by,updated_at) VALUES (?,?,?,?) ON CONFLICT(deal_number) DO UPDATE SET employee_email=excluded.employee_email,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(String(deal.deal_number).toUpperCase(),String(deal.owner_email).toLowerCase(),employee.email,now));
+  if(notificationOwners.length)await env.DB.batch(notificationOwners);
   await env.DB.prepare(commentSchema).run();
   const comments=await env.DB.prepare("SELECT id,deal_id,deal_number,author_user_id,author_initials,author_name,comment,created_at,edited_at FROM deal_comments ORDER BY created_at ASC LIMIT 1000").all();
-  return Response.json({deals:ownedDeals,comments:comments.results||[],currentUserId:employee.id,currentUserRole:employee.role});
+  const estimates=await env.DB.prepare("SELECT deal_id,deal_number,proposed_amount,updated_by,updated_at FROM deal_summary_estimates").all();
+  return Response.json({deals:ownedDeals,comments:comments.results||[],estimates:estimates.results||[],currentUserId:employee.id,currentUserEmail:employee.email,currentUserRole:employee.role});
 }
 
 export async function POST(request:Request){
@@ -43,8 +54,9 @@ export async function DELETE(request:Request){
   const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");const url=new URL(request.url);const dealId=url.searchParams.get("deal");
   if(dealId){
     const currentResponse=await upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(dealId)}&select=id,source_upload_id,deal_number,status,created_by&limit=1`,token);if(!currentResponse.ok)return Response.json({error:"The deal could not be opened."},{status:502});
-    const current=(await currentResponse.json() as {id:string;source_upload_id:string|null;deal_number:string;status:string;created_by:string}[])[0];if(!current)return Response.json({error:"Deal not found."},{status:404});if(employee.role!=="administrator"&&current.created_by!==employee.id)return Response.json({error:"Only the deal owner or an administrator can delete this deal."},{status:403});if(current.status!=="open")return Response.json({error:"Only an open deal can be deleted here."},{status:400});
-    let storagePath="";if(current.source_upload_id){const uploadResponse=await upstream(`/rest/v1/pdd_deal_uploads?id=eq.${encodeURIComponent(current.source_upload_id)}&select=storage_path&limit=1`,token);if(uploadResponse.ok)storagePath=((await uploadResponse.json() as {storage_path:string}[])[0]?.storage_path||"")}
+    const current=(await currentResponse.json() as {id:string;source_upload_id:string|null;deal_number:string;status:string;created_by:string}[])[0];if(!current)return Response.json({error:"Deal not found."},{status:404});
+    let storagePath="",ownerEmail="";if(current.source_upload_id){const uploadResponse=await upstream(`/rest/v1/pdd_deal_uploads?id=eq.${encodeURIComponent(current.source_upload_id)}&select=storage_path,employee_email&limit=1`,token);if(uploadResponse.ok){const upload=(await uploadResponse.json() as {storage_path:string;employee_email:string}[])[0];storagePath=upload?.storage_path||"";ownerEmail=upload?.employee_email||""}}
+    if(employee.role!=="administrator"&&current.created_by!==employee.id&&ownerEmail.toLowerCase()!==employee.email.toLowerCase())return Response.json({error:"Only the deal owner, uploader or an administrator can delete this deal."},{status:403});if(current.status!=="open")return Response.json({error:"Only an open deal can be deleted here."},{status:400});
     const publicDelete=await upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(current.id)}`,token,{method:"DELETE"});if(!publicDelete.ok)return Response.json({error:"The open deal could not be deleted."},{status:502});
     if(current.source_upload_id){const uploadDelete=await upstream(`/rest/v1/pdd_deal_uploads?id=eq.${encodeURIComponent(current.source_upload_id)}`,token,{method:"DELETE"});if(!uploadDelete.ok)return Response.json({error:"The deal was removed, but its source upload could not be deleted."},{status:502})}
     if(storagePath)await fetch(`${pddSupabaseUrl}/storage/v1/object/pdd-deal-uploads/${encodePath(storagePath)}`,{method:"DELETE",headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${token}`}});
@@ -60,12 +72,25 @@ export async function DELETE(request:Request){
 export async function PATCH(request:Request){
   const employee=await employeeUser(request);if(!employee)return Response.json({error:"Employee access required."},{status:401});
   const token=(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");
-  const body=await request.json() as {id?:string;status?:string;commentId?:string;comment?:string;dealName?:string};
+  const body=await request.json() as {id?:string;status?:string;commentId?:string;comment?:string;dealName?:string;dealNumber?:string;proposedAmount?:number;closesAt?:string};
   if(body.commentId){
     const comment=String(body.comment||"").trim();if(!comment)return Response.json({error:"Enter a comment."},{status:400});if(comment.length>1000)return Response.json({error:"Comments must be 1,000 characters or fewer."},{status:400});
     await env.DB.prepare(commentSchema).run();const existing=await env.DB.prepare("SELECT author_user_id FROM deal_comments WHERE id=? LIMIT 1").bind(body.commentId).first<{author_user_id:string}>();
-    if(!existing)return Response.json({error:"Comment not found."},{status:404});if(existing.author_user_id!==employee.id)return Response.json({error:"You may only edit your own comments."},{status:403});
+    if(!existing)return Response.json({error:"Comment not found."},{status:404});if(existing.author_user_id!==employee.id&&employee.role!=="administrator")return Response.json({error:"You may only edit your own comments."},{status:403});
     const editedAt=new Date().toISOString();await env.DB.prepare("UPDATE deal_comments SET comment=?,edited_at=? WHERE id=?").bind(comment,editedAt,body.commentId).run();return Response.json({comment:{id:body.commentId,comment,edited_at:editedAt}});
+  }
+  if(body.id&&body.proposedAmount!==undefined){
+    const amount=Number(body.proposedAmount);if(!Number.isFinite(amount)||amount<0)return Response.json({error:"Enter a valid proposed purchase amount."},{status:400});
+    const updatedAt=new Date().toISOString();await env.DB.prepare("INSERT INTO deal_summary_estimates (deal_id,deal_number,proposed_amount,updated_by,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(deal_id) DO UPDATE SET deal_number=excluded.deal_number,proposed_amount=excluded.proposed_amount,updated_by=excluded.updated_by,updated_at=excluded.updated_at").bind(body.id,String(body.dealNumber||""),amount,employee.id,updatedAt).run();
+    return Response.json({estimate:{deal_id:body.id,deal_number:String(body.dealNumber||""),proposed_amount:amount,updated_by:employee.id,updated_at:updatedAt}});
+  }
+  if(body.id&&body.closesAt!==undefined){
+    const close=new Date(body.closesAt);if(!Number.isFinite(close.getTime()))return Response.json({error:"Enter a valid closing date and time."},{status:400});
+    const currentResponse=await upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(body.id)}&select=id,source_upload_id,deal_number,quantity,category,title,status&limit=1`,token);if(!currentResponse.ok)return Response.json({error:"Deal could not be opened."},{status:502});
+    const current=(await currentResponse.json() as {id:string;source_upload_id:string|null;deal_number:string;quantity:number;category:string;title:string;status:string}[])[0];if(!current)return Response.json({error:"Deal not found."},{status:404});
+    const closesAt=close.toISOString(),updatedAt=new Date().toISOString(),reopens=current.status==="working"&&close.getTime()>Date.now(),response=await upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(body.id)}`,token,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({closes_at:closesAt,...(reopens?{status:"open"}:{}),published:true,updated_at:updatedAt})});if(!response.ok)return Response.json({error:"The closing date and time could not be updated."},{status:502});
+    if(current.source_upload_id){const displayDate=new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",year:"numeric"}).format(close),displayTime=new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",hour:"numeric",minute:"2-digit"}).format(close),inputParts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(close).filter(part=>part.type!=="literal").map(part=>[part.type,part.value])),dealName=current.category||current.title.replace(/^\d[\d,]*-Piece\s+/i,"").replace(/\s+Lot$/i,""),displayName=`${current.deal_number} — ${Number(current.quantity).toLocaleString("en-US")} pcs ${dealName} — Closes ${displayDate} at ${displayTime} PT`;await upstream(`/rest/v1/pdd_deal_uploads?id=eq.${encodeURIComponent(current.source_upload_id)}`,token,{method:"PATCH",body:JSON.stringify({bid_close_date:`${inputParts.year}-${inputParts.month}-${inputParts.day}`,bid_close_time:`${inputParts.hour}:${inputParts.minute}`,display_name:displayName,updated_at:updatedAt})})}
+    return Response.json({deal:(await response.json())[0]});
   }
   if(body.id&&body.dealName!==undefined){
     const dealName=String(body.dealName).trim();if(dealName.length<2||dealName.length>100)return Response.json({error:"Deal name must be between 2 and 100 characters."},{status:400});
@@ -76,8 +101,11 @@ export async function PATCH(request:Request){
     if(current.source_upload_id){const close=new Date(current.closes_at),displayDate=new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",month:"short",day:"numeric",year:"numeric"}).format(close),displayTime=new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",hour:"numeric",minute:"2-digit"}).format(close),displayName=`${current.deal_number} — ${Number(current.quantity).toLocaleString("en-US")} pcs ${dealName} — Closes ${displayDate} at ${displayTime} PT`;await upstream(`/rest/v1/pdd_deal_uploads?id=eq.${encodeURIComponent(current.source_upload_id)}`,token,{method:"PATCH",body:JSON.stringify({short_description:dealName,display_name:displayName,display_filename:spreadsheetFilename,updated_at:updatedAt})})}
     return Response.json({deal:(await response.json())[0]});
   }
-  if(!body.id||!["open","working","pending","no_bid","lost","completed","closed","archived"].includes(body.status||""))return Response.json({error:"Choose a valid deal status."},{status:400});
-  const response=await upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(body.id)}`,token,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({status:body.status,published:body.status==="open",updated_at:new Date().toISOString()})});
+  if(!body.id||!["open","working","pending","no_bid","lost","completed","closed","archived","won"].includes(body.status||""))return Response.json({error:"Choose a valid deal status."},{status:400});
+  const updatedAt=new Date().toISOString();
+  const statusUpdate:Record<string,unknown>={status:body.status,published:["open","working","pending"].includes(body.status||""),updated_at:updatedAt};
+  if(body.status==="open")statusUpdate.closes_at=new Date(Date.now()+48*60*60*1000).toISOString();
+  const response=await upstream(`/rest/v1/pdd_public_deals?id=eq.${encodeURIComponent(body.id)}`,token,{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify(statusUpdate)});
   if(!response.ok)return Response.json({error:"Deal status could not be updated."},{status:502});
   return Response.json({deal:(await response.json())[0]});
 }

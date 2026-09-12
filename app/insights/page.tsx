@@ -3,9 +3,8 @@ import Link from "next/link";
 import {PageHero,Shell} from "../../components/SiteShell";
 
 export const metadata:Metadata={
-  title:"Technology Remarketing Insights | Mac2MacOnline",
-  description:"Practical guidance for selling surplus RAM, SSDs, GPUs, Apple equipment and other business technology.",
-};
+  title:"Technology Remarketing Insights",
+  description:"Practical guidance for selling surplus RAM, SSDs, GPUs, Apple equipment and other business technology.",alternates:{canonical:"/insights"}};
 
 export default function InsightsPage(){return <Shell><main>
   <PageHero eyebrow="Insights" title="Technology remarketing insights" intro="Practical guidance for businesses and individuals selling surplus technology, parts and Apple equipment."/>

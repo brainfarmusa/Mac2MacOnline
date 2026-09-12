@@ -43,14 +43,14 @@ export async function GET(request: Request) {
   }
   if (dealNumber) {
     const result = await env.DB.prepare(
-      "SELECT b.internal_bid_number,b.deal_number,b.company,b.contact_name,b.line_items_json,b.line_count,b.total_quantity,b.total_bid,b.status,b.submitted_at,COALESCE(a.employee_name,'') entered_by_name FROM internal_bids b LEFT JOIN internal_bid_agents a ON a.bid_id=b.id WHERE b.deal_number=? ORDER BY b.total_bid DESC,b.submitted_at DESC",
+      "SELECT b.internal_bid_number,b.deal_number,b.company,b.contact_name,b.line_items_json,b.line_count,b.total_quantity,b.total_bid,b.status,b.submitted_at,COALESCE(a.employee_name,'') entered_by_name,COALESCE((SELECT owner.assigned_employee_name FROM imported_customers owner WHERE owner.id=COALESCE(a.customer_key,'') OR (owner.email<>'' AND lower(owner.email)=lower(b.email)) ORDER BY CASE WHEN owner.id=COALESCE(a.customer_key,'') THEN 0 ELSE 1 END LIMIT 1),'') sales_owner_name FROM internal_bids b LEFT JOIN internal_bid_agents a ON a.bid_id=b.id WHERE b.deal_number=? ORDER BY b.total_bid DESC,b.submitted_at DESC",
     )
       .bind(dealNumber.toUpperCase())
       .all();
     return Response.json({ bids: (result.results || []).map((bid) => bidSummary(bid as Record<string, unknown>)) });
   }
   const result = await env.DB.prepare(
-    "SELECT b.internal_bid_number,b.deal_number,b.company,b.contact_name,b.line_items_json,b.line_count,b.total_quantity,b.total_bid,b.status,b.submitted_at,COALESCE(a.employee_name,'') entered_by_name,COALESCE(a.employee_email,'') entered_by_email,COALESCE(a.uploaded_file_name,'') uploaded_file_name FROM internal_bids b LEFT JOIN internal_bid_agents a ON a.bid_id=b.id ORDER BY b.submitted_at DESC LIMIT 100",
+    "SELECT b.internal_bid_number,b.deal_number,b.company,b.contact_name,b.line_items_json,b.line_count,b.total_quantity,b.total_bid,b.status,b.submitted_at,COALESCE(a.employee_name,'') entered_by_name,COALESCE(a.employee_email,'') entered_by_email,COALESCE(a.uploaded_file_name,'') uploaded_file_name,COALESCE((SELECT owner.assigned_employee_name FROM imported_customers owner WHERE owner.id=COALESCE(a.customer_key,'') OR (owner.email<>'' AND lower(owner.email)=lower(b.email)) ORDER BY CASE WHEN owner.id=COALESCE(a.customer_key,'') THEN 0 ELSE 1 END LIMIT 1),'') sales_owner_name FROM internal_bids b LEFT JOIN internal_bid_agents a ON a.bid_id=b.id ORDER BY b.submitted_at DESC LIMIT 100",
   ).all();
   const offeredDeals = await env.DB.prepare(
     "SELECT DISTINCT b.deal_number FROM internal_bids b WHERE COALESCE(b.total_bid,0)>0 AND b.status IN ('submitted','won') AND NOT EXISTS (SELECT 1 FROM deal_finalizations f WHERE f.deal_number=b.deal_number AND f.finalized_at IS NOT NULL) ORDER BY b.deal_number",

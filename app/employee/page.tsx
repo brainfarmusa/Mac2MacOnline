@@ -133,11 +133,7 @@ export default function EmployeeDashboard() {
               <a href="/employee/contacts?type=customers">
                 Customers <b>→</b>
               </a>
-              <a href="/employee/contacts?type=customers&amp;new=1">
-                New Customer <b>→</b>
-              </a>
               <a href="/employee/applications?site=m2m&amp;type=customer">M2M Customer Onboarding <b>→</b></a>
-              <a href="/employee/applications?site=brainfarm&amp;type=customer">BrainFarm Customer Onboarding <b>→</b></a>
               <a href="/employee/orders?type=sales">
                 Sales Order History <b>→</b>
               </a>
@@ -210,19 +206,12 @@ export default function EmployeeDashboard() {
               <a href="/employee/reverse-offer">
                 Create Purchase Order <b>→</b>
               </a>
-              <a href="/employee/contacts?type=vendors&amp;new=1">
-                New Vendor <b>→</b>
-              </a>
               <a href="/employee/applications?site=m2m&amp;type=vendor">M2M Vendor Onboarding <b>→</b></a>
-              <a href="/employee/applications?site=brainfarm&amp;type=vendor">BrainFarm Vendor Onboarding <b>→</b></a>
-              <a href="/employee/purchase-order-upload">
-                PO From Spreadsheet <b>→</b>
-              </a>
               <a href="/employee/orders?type=purchase">
                 Purchase Order History <b>→</b>
               </a>
               <a href="/employee/contacts?type=vendors">
-                Vendor Directory <b>→</b>
+                Vendors <b>→</b>
               </a>
             </div>
           </article>
@@ -263,12 +252,18 @@ export default function EmployeeDashboard() {
           </article>
           <article className="dashboardBrainFarm">
             <span>BRAINFARM</span>
-            <h2>BrainFarm System Builds</h2>
+            <h2>BrainFarm</h2>
             <p>
               Configure AI systems, component costs and customer pricing by
               build level.
             </p>
             <div className="workbookActionList">
+              <a href="/employee/applications?site=brainfarm&amp;type=customer">
+                BrainFarm Customer Onboarding <b>→</b>
+              </a>
+              <a href="/employee/applications?site=brainfarm&amp;type=vendor">
+                BrainFarm Vendor Onboarding <b>→</b>
+              </a>
               <a href="/employee/system-builds/custom">
                 Custom Build <b>→</b>
               </a>

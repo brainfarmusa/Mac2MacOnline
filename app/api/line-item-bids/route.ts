@@ -374,8 +374,7 @@ export async function POST(request: Request) {
     const customerUserId = submittedOnBehalf
       ? clean(body.customerUserId, 100) || null
       : user?.id || null;
-    if (!submittedOnBehalf)
-      await ensureCustomerCompany({
+    const customerCompany = await ensureCustomerCompany({
         company,
         contactName,
         email,
@@ -456,6 +455,7 @@ export async function POST(request: Request) {
           from: runtime.BID_EMAIL_FROM,
           adminEmail: runtime.BID_ADMIN_EMAIL,
           employeeEmail: assignedEmployeeEmail,
+          customerRepEmail: customerCompany?.assignedEmployeeEmail,
           bidderEmail: email,
           bidderName: contactName,
           company,
@@ -580,6 +580,7 @@ export async function POST(request: Request) {
       from: runtime.BID_EMAIL_FROM,
       adminEmail: runtime.BID_ADMIN_EMAIL,
       employeeEmail: assignedEmployeeEmail,
+      customerRepEmail: customerCompany?.assignedEmployeeEmail,
       bidderEmail: email,
       bidderName: contactName,
       company,

@@ -1,6 +1,7 @@
 import {env} from "cloudflare:workers";
 import {supabaseReady,supabaseRequest} from "../../../lib/supabase";
 import {sendBidNotifications} from "../../../lib/bid-email";
+import {ensureCustomerCompany} from "../../../lib/business-company";
 
 const MAX_FILE_SIZE=10*1024*1024;
 const ALLOWED_TYPES=new Set(["application/pdf","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","text/csv","image/jpeg","image/png"]);
@@ -38,7 +39,8 @@ export async function POST(request:Request){
     }
     const runtime=env as unknown as Record<string,string|undefined>;
     const ownerKey=`DEAL_OWNER_EMAIL_${dealId.toUpperCase().replace(/[^A-Z0-9]/g,"_")}`;
-    const notification=await sendBidNotifications({apiKey:runtime.RESEND_API_KEY,from:runtime.BID_EMAIL_FROM,adminEmail:runtime.BID_ADMIN_EMAIL,employeeEmail:runtime[ownerKey]||runtime.BID_EMPLOYEE_EMAIL,bidderEmail:email,bidderName:contactName,company,bidNumber,dealNumber:dealId,total:Math.round(quantity*unitPrice*100)/100,quantity,notes});
+    const customerCompany=await ensureCustomerCompany({company,contactName,email,phone,assignedEmployeeEmail:runtime[ownerKey]||runtime.BID_EMPLOYEE_EMAIL,source:"website-bid"});
+    const notification=await sendBidNotifications({apiKey:runtime.RESEND_API_KEY,from:runtime.BID_EMAIL_FROM,adminEmail:runtime.BID_ADMIN_EMAIL,employeeEmail:runtime[ownerKey]||runtime.BID_EMPLOYEE_EMAIL,customerRepEmail:customerCompany?.assignedEmployeeEmail,bidderEmail:email,bidderName:contactName,company,bidNumber,dealNumber:dealId,total:Math.round(quantity*unitPrice*100)/100,quantity,notes});
     return Response.json({ok:true,bid_number:bidNumber,emailNotification:notification.status},{status:201});
   }catch{return Response.json({error:"Your offer could not be submitted. Please try again."},{status:500})}
 }

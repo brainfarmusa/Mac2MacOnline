@@ -114,6 +114,9 @@ export default function EmployeeDashboard() {
               <a href="/employee/contacts">
                 Vendors &amp; Customers <b>→</b>
               </a>
+              <a href="/employee/export-compliance">
+                Export Compliance Reviews <b>→</b>
+              </a>
             </div>
           </article>
           <article className="dashboardSales">

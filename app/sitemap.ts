@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/about",
     "/certifications",
     "/privacy",
+    "/export-compliance",
     "/equipment-we-buy",
     "/trade-in",
     "/sell-ram-ssds-gpus-apple",

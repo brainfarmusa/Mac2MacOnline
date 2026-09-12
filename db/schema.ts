@@ -180,3 +180,15 @@ export const businessCompanyAddresses = sqliteTable("business_company_addresses"
 }, (table) => [
   uniqueIndex("business_company_addresses_record_unique").on(table.recordType, table.recordId),
 ]);
+
+export const exportComplianceSubmissions = sqliteTable("export_compliance_submissions", {
+  id: text("id").primaryKey(),
+  reference: text("reference").notNull().unique(),
+  company: text("company").notNull(),
+  contactName: text("contact_name").notNull(),
+  email: text("email").notNull(),
+  destinationCountry: text("destination_country").notNull(),
+  payload: text("payload").notNull(),
+  status: text("status").notNull().default("pending_review"),
+  createdAt: text("created_at").notNull(),
+});

@@ -28,6 +28,7 @@ export default function PublicDealDesk(){
  const [allDeals,setAllDeals]=useState<Deal[]>([]);
  const [live,setLive]=useState(false);
  const [updated,setUpdated]=useState("");
+ useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("direction");if(requested==="selling"||requested==="buying")setDirection(requested)},[]);
  useEffect(()=>{let active=true;fetch("/api/deals").then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(active&&Array.isArray(data.deals)){setAllDeals(data.deals);setLive(true);setUpdated(new Date().toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}))}}).catch(()=>{});return()=>{active=false}},[]);
  const deals=useMemo(()=>allDeals.filter(deal=>{const haystack=`${deal.deal_number} ${deal.category} ${deal.title} ${deal.description} ${deal.manufacturer} ${deal.part_number}`.toLowerCase();return(direction==="all"||deal.direction===direction)&&haystack.includes(query.toLowerCase())}),[allDeals,direction,query]);
  const wtbDeals=deals.filter(deal=>deal.direction==="buying");

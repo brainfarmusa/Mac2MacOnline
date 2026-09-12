@@ -206,12 +206,12 @@ export default function EmployeeDashboard() {
               <a href="/employee/reverse-offer">
                 Create Purchase Order <b>→</b>
               </a>
+              <a href="/employee/contacts?type=vendors">
+                Vendors <b>→</b>
+              </a>
               <a href="/employee/applications?site=m2m&amp;type=vendor">M2M Vendor Onboarding <b>→</b></a>
               <a href="/employee/orders?type=purchase">
                 Purchase Order History <b>→</b>
-              </a>
-              <a href="/employee/contacts?type=vendors">
-                Vendors <b>→</b>
               </a>
             </div>
           </article>

@@ -13,7 +13,7 @@ export async function GET(_:Request,{params}:{params:Promise<{dealNumber:string}
   if(!supabaseReady())return Response.json({error:"Deal service is unavailable."},{status:503});
   try{
     const columns="id,deal_number,direction,category,title,description,quantity,manufacturer,part_number,closes_at,location,public_lines,spreadsheet_filename";
-    const response=await supabaseRequest(`/rest/v1/pdd_public_deals?select=${columns}&deal_number=eq.${encodeURIComponent(dealNumber.toUpperCase())}&status=in.(open,working,pending)&limit=1`);
+    const response=await supabaseRequest(`/rest/v1/pdd_public_deals?select=${columns}&deal_number=eq.${encodeURIComponent(dealNumber.toUpperCase())}&status=in.(open,closing_soon)&limit=1`);
     if(!response.ok)return Response.json({error:"The deal could not be opened."},{status:502});
     const rows=await response.json() as unknown[];
     if(!rows[0])return Response.json({error:"This deal is not accepting bids."},{status:404});

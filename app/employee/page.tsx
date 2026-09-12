@@ -310,9 +310,6 @@ export default function EmployeeDashboard() {
               listings through connected sales channels.
             </p>
             <div className="workbookActionList">
-              <a href="/employee/mailchimp">
-                <span className="integrationLinkLabel">Mailchimp</span> <b>→</b>
-              </a>
               <a href="/employee/integrations/brokerbin">
                 <span className="integrationLinkLabel"><img src="https://brokerbin.com/favicon.ico" alt="" aria-hidden="true" />BrokerBin Posting</span> <b>→</b>
               </a>
@@ -321,6 +318,9 @@ export default function EmployeeDashboard() {
               </a>
               <a href="/employee/integrations/linkedin">
                 <span className="integrationLinkLabel"><img src="https://www.linkedin.com/favicon.ico" alt="" aria-hidden="true" />LinkedIn Posting</span> <b>→</b>
+              </a>
+              <a href="/employee/mailchimp">
+                <span className="integrationLinkLabel"><img src="https://mailchimp.com/favicon.ico" alt="" aria-hidden="true" />Mailchimp</span> <b>→</b>
               </a>
               <a href="/employee/integrations/tbs">
                 <span className="integrationLinkLabel"><img src="https://www.thebrokersite.com/favicon.png" alt="" aria-hidden="true" />TBS Posting</span> <b>→</b>

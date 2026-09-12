@@ -302,27 +302,6 @@ export default function EmployeeDashboard() {
               </a>
             </div>
           </article>
-          <article className="mailchimpSetupCard dashboardMailchimp">
-            <div className="mailchimpCardHeader">
-              <span>EMAIL MARKETING</span>
-              <b className="integrationStatus">Not connected</b>
-            </div>
-            <h2>Mailchimp</h2>
-            <p>
-              Connect the Deal Workbook to one Mailchimp audience and keep
-              approved vendors, customers and prospects organized with tags.
-            </p>
-            <div className="mailchimpScope" aria-label="Mailchimp contact groups">
-              <span>Customers</span>
-              <span>Prospects</span>
-              <span>Vendors</span>
-            </div>
-            <div className="workbookActionList">
-              <a className="primaryWorkflowAction" href="/employee/mailchimp">
-                Set Up Mailchimp <b>→</b>
-              </a>
-            </div>
-          </article>
           <article className="dashboardIntegrations">
             <span>CONNECTED TOOLS</span>
             <h2>Integrations</h2>
@@ -331,6 +310,9 @@ export default function EmployeeDashboard() {
               listings through connected sales channels.
             </p>
             <div className="workbookActionList">
+              <a href="/employee/mailchimp">
+                <span className="integrationLinkLabel">Mailchimp</span> <b>→</b>
+              </a>
               <a href="/employee/integrations/brokerbin">
                 <span className="integrationLinkLabel"><img src="https://brokerbin.com/favicon.ico" alt="" aria-hidden="true" />BrokerBin Posting</span> <b>→</b>
               </a>

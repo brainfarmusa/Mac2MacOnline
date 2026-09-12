@@ -1124,9 +1124,14 @@ export default function PurchaseOrderGenerator({
 
   async function generate() {
     if (!session || !user || !profile || !chosen || (isVendorBid && !selectedDeal)) return;
-    if (chosen.line_count === 0) {
+    if (
+      chosen.line_count === 0 &&
+      !(isVendorBid && pricingMode === "total")
+    ) {
       setMessage(
-        `This take-all offer needs itemized line pricing before ${isVendorBid ? "an official vendor bid" : "a purchase order"} can be created.`,
+        isVendorBid
+          ? "For a take-all offer, choose Enter exact vendor bid total. The total will be divided equally across all items."
+          : "This take-all offer needs itemized line pricing before a purchase order can be created.",
       );
       return;
     }
@@ -1188,6 +1193,26 @@ export default function PurchaseOrderGenerator({
         throw new Error(
           `${isVendorBid ? "Official vendor bids" : "Purchase orders"} currently require the original upload to be an .xlsx workbook.`,
         );
+      const pricingBid =
+        isVendorBid && bidData.bid.line_count === 0 && pricingMode === "total"
+          ? {
+              ...bidData.bid,
+              line_count: upload.quantified_lines.length,
+              line_items: upload.quantified_lines.map((line) => ({
+                lineNumber: line.line,
+                quantity: line.quantity,
+                unitBid: 1,
+              })),
+            }
+          : bidData.bid;
+      if (
+        isVendorBid &&
+        bidData.bid.line_count === 0 &&
+        !pricingBid.line_items?.some((line) => line.quantity > 0)
+      )
+        throw new Error(
+          "The original spreadsheet does not contain item quantities for this take-all offer.",
+        );
       const pricing: Pricing = {
           margin: percent,
           target: roundMoney(target),
@@ -1230,7 +1255,7 @@ export default function PurchaseOrderGenerator({
         const built = await generatePurchaseOrder(
             await fileResponse.blob(),
             upload,
-            bidData.bid,
+            pricingBid,
             pricing,
             poNumber,
             "vendor-bid",
@@ -1238,7 +1263,7 @@ export default function PurchaseOrderGenerator({
           ),
           pdf = await createPurchaseOrderPdf(
             upload,
-            bidData.bid,
+            pricingBid,
             pricing,
             poNumber,
             deals.find((deal) => deal.deal_number === bidData.bid.deal_number)
@@ -1479,19 +1504,25 @@ export default function PurchaseOrderGenerator({
               : "This offer must be marked Won before a PO can be created"}
           </p>
         )}
-        {chosen && chosen.line_count === 0 && (
+        {chosen &&
+          chosen.line_count === 0 &&
+          (!isVendorBid || pricingMode !== "total") && (
           <div className="poItemizationRequired">
             <b>
-              Line-item pricing is required before this {isVendorBid ? "vendor bid" : "PO"} can be generated.
+              {isVendorBid
+                ? "This Take-All offer can use an exact vendor bid total."
+                : "Line-item pricing is required before this PO can be generated."}
             </b>
             <span>
-              This offer was submitted as Take-All. Enter the customer&apos;s
-              line-item prices for {chosen.deal_number}
-              {!isVendorBid && ", then mark that itemized bid Won"}.
+              {isVendorBid
+                ? "Choose Enter exact vendor bid total. The amount will be divided equally across every item in the original spreadsheet."
+                : `This offer was submitted as Take-All. Enter the customer's line-item prices for ${chosen.deal_number}, then mark that itemized bid Won.`}
             </span>
-            <a href={`/employee/customer-bid?deal=${encodeURIComponent(chosen.deal_number)}`}>
-              Enter Line-Item Bid
-            </a>
+            {!isVendorBid && (
+              <a href={`/employee/customer-bid?deal=${encodeURIComponent(chosen.deal_number)}`}>
+                Enter Line-Item Bid
+              </a>
+            )}
           </div>
         )}
         {vendor && (

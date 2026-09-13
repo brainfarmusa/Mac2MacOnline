@@ -6,7 +6,12 @@ const clean = (value: unknown, max = 500) =>
   String(value ?? "")
     .trim()
     .slice(0, max);
-const dealStatuses = new Set(["in_process", "ready_for_workbook", "completed"]);
+const dealStatuses = new Set([
+  "awaiting_arrival",
+  "in_process",
+  "ready_for_workbook",
+  "completed",
+]);
 const locations = new Set(["inbound", "in_house"]);
 const itemStatuses = new Set(["testing", "data_wipe", "grading", "complete"]);
 const nextPoNumber = (rows: unknown[]) =>
@@ -21,7 +26,7 @@ export async function GET(request: Request) {
     );
   const [deals, items] = await Promise.all([
     env.DB.prepare(
-      "SELECT id,po_number,customer,location_status,status,notes,created_by,created_at,updated_at FROM r2_processing_deals ORDER BY CASE status WHEN 'in_process' THEN 0 WHEN 'ready_for_workbook' THEN 1 ELSE 2 END,updated_at DESC",
+      "SELECT id,po_number,customer,location_status,status,notes,created_by,created_at,updated_at FROM r2_processing_deals ORDER BY CASE status WHEN 'awaiting_arrival' THEN 0 WHEN 'in_process' THEN 1 WHEN 'ready_for_workbook' THEN 2 ELSE 3 END,updated_at DESC",
     ).all(),
     env.DB.prepare(
       "SELECT id,deal_id,serial_number,technician,model_sku,tech_data_json,bitraser_report_id,bitraser_data_json,status,created_at,updated_at FROM r2_processing_items ORDER BY updated_at DESC",
@@ -96,7 +101,7 @@ export async function POST(request: Request) {
           poNumber,
           customer,
           locationStatus,
-          "in_process",
+          locationStatus === "inbound" ? "awaiting_arrival" : "in_process",
           notes,
           employee.email,
           now,
@@ -175,7 +180,7 @@ export async function POST(request: Request) {
         )
         .run();
       await env.DB.prepare(
-        "UPDATE r2_processing_deals SET updated_at=? WHERE id=?",
+        "UPDATE r2_processing_deals SET status=CASE WHEN status='awaiting_arrival' THEN 'in_process' ELSE status END,location_status='in_house',updated_at=? WHERE id=?",
       )
         .bind(now, dealId)
         .run();

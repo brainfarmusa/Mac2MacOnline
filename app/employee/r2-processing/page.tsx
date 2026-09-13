@@ -88,6 +88,43 @@ const texts = [
   ["lcdSize", "LCD size"],
   ["usbCount", "USB/USB-C quantity"],
 ] as const;
+const processingCategories = [
+  ["controlled_unevaluated", "R2 controlled — Unevaluated equipment"],
+  ["controlled_unsanitized", "R2 controlled — Unsanitized device or media"],
+  ["controlled_test_repair", "R2 controlled — Requires test or repair"],
+  ["controlled_focus_material", "R2 controlled — Focus-material equipment"],
+  ["unrestricted_new", "Unrestricted — New unopened OEM equipment"],
+  ["unrestricted_non_data", "Unrestricted — Non-electronic/non-focus material"],
+  ["unrestricted_return", "Unrestricted — Documented planned return"],
+] as const;
+const sanitizationStatuses = [
+  ["not_evaluated", "Not evaluated — data presence unknown"],
+  ["contains_data", "Contains data — sanitization required"],
+  ["non_data_device", "Non-data device"],
+  ["no_data_found", "Evaluated as not containing data"],
+  ["physical_destruction", "Sanitized through physical destruction"],
+  ["software", "Sanitized with software"],
+] as const;
+const cosmeticGrades = [
+  ["C0", "Not categorized"],
+  ["C1", "Damaged"],
+  ["C2", "Used Poor"],
+  ["C3", "Used Fair"],
+  ["C4", "Used Good"],
+  ["C5", "Used Very Good"],
+  ["C6", "Used Excellent"],
+  ["C7", "Certified Pre-Owned"],
+  ["C8", "Unused"],
+  ["C9", "New Open Box"],
+] as const;
+const functionalGrades = [
+  ["F1", "Collectible or Specialty"],
+  ["F2", "Verified Specialty Electronics"],
+  ["F3", "Key Functions Working"],
+  ["F4", "Hardware Functional"],
+  ["F5", "Refurbished"],
+  ["F6", "Like New"],
+] as const;
 const emptyTech = () =>
   Object.fromEntries([...checks, ...texts].map(([key]) => [key, ""])) as Record<
     string,
@@ -115,6 +152,7 @@ export default function R2ProcessingPage() {
     notes: "",
   });
   const [uploadName, setUploadName] = useState(""),
+    [uploadFile, setUploadFile] = useState<File | null>(null),
     [uploadPreview, setUploadPreview] = useState<RawSpreadsheetPreview | null>(
       null,
     ),
@@ -126,7 +164,10 @@ export default function R2ProcessingPage() {
     technician: "",
     modelSku: "",
     status: "testing",
-    grade: "",
+    cosmeticGrade: "",
+    functionalGrade: "",
+    processingCategory: "controlled_unevaluated",
+    sanitizationStatus: "not_evaluated",
     gradeComments: "",
     finalResult: "",
     techData: { ...emptyTech(), testDate: today() },
@@ -218,11 +259,13 @@ export default function R2ProcessingPage() {
           /model|sku|part\s*(?:number|no\.?|#)/i.test(header),
         );
       setUploadName(file.name);
+      setUploadFile(file);
       setUploadPreview(preview);
       setSerialColumn(serial);
       setModelColumn(model);
     } catch (error) {
       setUploadName("");
+      setUploadFile(null);
       setUploadPreview(null);
       setMessage(
         error instanceof Error
@@ -233,12 +276,6 @@ export default function R2ProcessingPage() {
   }
   async function createDeal(event: FormEvent) {
     event.preventDefault();
-    if (uploadPreview && serialColumn < 0) {
-      setMessage(
-        "Choose the spreadsheet column that contains each serial number.",
-      );
-      return;
-    }
     const imported = (uploadPreview?.rows || [])
       .map((row) => ({
         serialNumber: String(row[serialColumn] || "")
@@ -260,12 +297,26 @@ export default function R2ProcessingPage() {
       setUploadPreview(null);
       setSerialColumn(-1);
       setModelColumn(-1);
+      let uploadWarning = "";
+      if (uploadFile) {
+        const form = new FormData();
+        form.append("dealId", data.id);
+        form.append("file", uploadFile);
+        const uploadResponse = await fetch(
+          "/api/admin/r2-processing/inventory",
+          { method: "POST", headers: headers || undefined, body: form },
+        );
+        if (!uploadResponse.ok)
+          uploadWarning =
+            " The deal was created, but the original spreadsheet could not be stored.";
+      }
+      setUploadFile(null);
       await load();
       setSelected(data.id);
       setMessage(
         imported.length
-          ? `${data.poNumber || nextPoNumber} created with ${imported.length} serialized items.`
-          : `${data.poNumber || nextPoNumber} created.`,
+          ? `${data.poNumber || nextPoNumber} created with ${imported.length} serialized items.${uploadWarning}`
+          : `${data.poNumber || nextPoNumber} created for intake. Reopen it when the equipment arrives to add serial numbers and processing results.${uploadWarning}`,
       );
     }
   }
@@ -277,7 +328,10 @@ export default function R2ProcessingPage() {
         technician: session?.user?.email?.split("@")[0] || "",
         modelSku: "",
         status: "testing",
-        grade: "",
+        cosmeticGrade: "",
+        functionalGrade: "",
+        processingCategory: "controlled_unevaluated",
+        sanitizationStatus: "not_evaluated",
         gradeComments: "",
         finalResult: "",
         techData: { ...emptyTech(), testDate: today() },
@@ -292,7 +346,13 @@ export default function R2ProcessingPage() {
       technician: row.technician,
       modelSku: row.model_sku,
       status: row.status,
-      grade: row.tech_data.grade || "",
+      cosmeticGrade: row.tech_data.cosmeticGrade || "",
+      functionalGrade: row.tech_data.functionalGrade || "",
+      processingCategory:
+        row.tech_data.processingCategory || "controlled_unevaluated",
+      sanitizationStatus:
+        row.tech_data.sanitizationStatus ||
+        (row.tech_data.bitraser === "yes" ? "software" : "not_evaluated"),
       gradeComments: row.tech_data.gradeComments || "",
       finalResult: row.tech_data.finalResult || "",
       techData: {
@@ -353,6 +413,11 @@ export default function R2ProcessingPage() {
         .join(" · "),
       bitraserReportId: r.report.id,
       bitraserData: r as unknown as Record<string, unknown>,
+      sanitizationStatus:
+        Number(r.erasure.successfulDisks) > 0 &&
+        Number(r.erasure.failedDisks) === 0
+          ? "software"
+          : current.sanitizationStatus,
       techData: tech,
     }));
     setMessage(`BitRaser report ${r.report.id} loaded.`);
@@ -362,7 +427,10 @@ export default function R2ProcessingPage() {
     if (!selected) return;
     const techData = {
       ...item.techData,
-      grade: item.grade,
+      cosmeticGrade: item.cosmeticGrade,
+      functionalGrade: item.functionalGrade,
+      processingCategory: item.processingCategory,
+      sanitizationStatus: item.sanitizationStatus,
       gradeComments: item.gradeComments,
       finalResult: item.finalResult,
     };
@@ -397,6 +465,27 @@ export default function R2ProcessingPage() {
       await load();
       setMessage("R2 deal updated.");
     }
+  }
+  async function downloadOriginalInventory() {
+    if (!deal || !headers) return;
+    const response = await fetch(
+      `/api/admin/r2-processing/inventory?deal=${encodeURIComponent(deal.id)}`,
+      { headers },
+    );
+    if (!response.ok) {
+      setMessage("The original inventory spreadsheet could not be downloaded.");
+      return;
+    }
+    const blob = await response.blob(),
+      disposition = response.headers.get("content-disposition") || "",
+      encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1],
+      link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = encoded
+      ? decodeURIComponent(encoded)
+      : `${deal.po_number}-inventory.xlsx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   }
   const setTech = (key: string, value: string) =>
     setItem((current) => ({
@@ -498,8 +587,9 @@ export default function R2ProcessingPage() {
                 <div>
                   <b>Upload original inventory spreadsheet</b>
                   <p>
-                    Each row becomes a separate serialized R2 item. Items are
-                    not quantified.
+                    Upload the information you have now. If serial numbers are
+                    not available, create the intake deal and add them when the
+                    equipment arrives.
                   </p>
                 </div>
                 <label className="button secondary">
@@ -515,15 +605,14 @@ export default function R2ProcessingPage() {
                 <>
                   <div className="r2UploadMapping">
                     <label>
-                      Serial-number column *
+                      Serial-number column (optional at intake)
                       <select
-                        required
                         value={serialColumn}
                         onChange={(e) =>
                           setSerialColumn(Number(e.target.value))
                         }
                       >
-                        <option value={-1}>Choose column…</option>
+                        <option value={-1}>Not in this spreadsheet</option>
                         {uploadPreview.headers.map((header, index) => (
                           <option key={index} value={index}>
                             {header || `Column ${index + 1}`}
@@ -584,7 +673,7 @@ export default function R2ProcessingPage() {
               />
             </label>
             <button className="button" disabled={busy}>
-              {busy ? "Creating…" : "Create R2 Deal"}
+              {busy ? "Creating…" : "Create Intake Deal"}
             </button>
           </form>
         )}
@@ -639,6 +728,7 @@ export default function R2ProcessingPage() {
                     )
                   }
                 >
+                  <option value="awaiting_arrival">Awaiting arrival</option>
                   <option value="in_process">In process</option>
                   <option value="ready_for_workbook">
                     Ready for Deal Workbook
@@ -664,6 +754,15 @@ export default function R2ProcessingPage() {
               <button className="button secondary" onClick={updateDeal}>
                 Save Deal
               </button>
+              {/Original inventory:/i.test(deal.notes) && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => void downloadOriginalInventory()}
+                >
+                  Download Original Inventory
+                </button>
+              )}
             </section>
             <section className="r2Stats">
               <article>
@@ -716,7 +815,7 @@ export default function R2ProcessingPage() {
                         <th>Technician</th>
                         <th>Stage</th>
                         <th>BitRaser</th>
-                        <th>Grade</th>
+                        <th>R2 Grade</th>
                         <th>Result</th>
                         <th></th>
                       </tr>
@@ -731,7 +830,14 @@ export default function R2ProcessingPage() {
                           <td>{row.technician}</td>
                           <td>{row.status.replace("_", " ")}</td>
                           <td>{row.tech_data.bitraser || "—"}</td>
-                          <td>{row.tech_data.grade || "—"}</td>
+                          <td>
+                            {[
+                              row.tech_data.functionalGrade,
+                              row.tech_data.cosmeticGrade,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ") || "—"}
+                          </td>
                           <td>{row.tech_data.finalResult || "—"}</td>
                           <td>
                             <button onClick={() => editItem(row)}>Edit</button>
@@ -742,7 +848,11 @@ export default function R2ProcessingPage() {
                   </table>
                 </div>
               ) : (
-                <p className="r2Empty">No serialized items have been added.</p>
+                <p className="r2Empty">
+                  Intake deal created. When the equipment arrives, choose Add
+                  Item to begin serial-number tracking, testing, data wiping and
+                  R2 grading.
+                </p>
               )}
             </section>
             <form className="r2TechSheet" onSubmit={saveItem}>
@@ -851,16 +961,64 @@ export default function R2ProcessingPage() {
               </div>
               <div className="r2Grade">
                 <label>
-                  Grade
+                  R2 processing category
                   <select
-                    value={item.grade}
+                    value={item.processingCategory}
                     onChange={(e) =>
-                      setItem({ ...item, grade: e.target.value })
+                      setItem({ ...item, processingCategory: e.target.value })
+                    }
+                  >
+                    {processingCategories.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Data-sanitization status
+                  <select
+                    value={item.sanitizationStatus}
+                    onChange={(e) =>
+                      setItem({ ...item, sanitizationStatus: e.target.value })
+                    }
+                  >
+                    {sanitizationStatuses.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Cosmetic grade
+                  <select
+                    value={item.cosmeticGrade}
+                    onChange={(e) =>
+                      setItem({ ...item, cosmeticGrade: e.target.value })
                     }
                   >
                     <option value="">Not graded</option>
-                    {["A", "B", "C", "D", "F"].map((g) => (
-                      <option key={g}>{g}</option>
+                    {cosmeticGrades.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {value} — {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Functionality grade
+                  <select
+                    value={item.functionalGrade}
+                    onChange={(e) =>
+                      setItem({ ...item, functionalGrade: e.target.value })
+                    }
+                  >
+                    <option value="">Not graded</option>
+                    {functionalGrades.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {value} — {label}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -877,6 +1035,17 @@ export default function R2ProcessingPage() {
                     <option value="fail">Fail</option>
                   </select>
                 </label>
+                <div className="r2GradeSummary">
+                  <span>Final R2 grade</span>
+                  <strong>
+                    {[item.functionalGrade, item.cosmeticGrade]
+                      .filter(Boolean)
+                      .join(" / ") || "Not assigned"}
+                  </strong>
+                  <a href="/m2m-r2-grading" target="_blank" rel="noreferrer">
+                    Open M2M R2 Grading Guide
+                  </a>
+                </div>
                 <label className="wide">
                   Grade comments
                   <textarea

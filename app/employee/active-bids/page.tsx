@@ -462,6 +462,7 @@ export default function ActiveBidsPage() {
     { key: "working", title: "Working" },
     { key: "pending", title: "Pending Fulfillment" },
     { key: "want_to_buy", title: "Want to Buy" },
+    { key: "r2_processing", title: "R2 In Process" },
     { key: "no_bid", title: "No Bid" },
     { key: "lost", title: "Lost" },
     { key: "completed", title: "Fulfilled" },
@@ -645,11 +646,11 @@ export default function ActiveBidsPage() {
           pending fulfillment
         </span>
       </div>
-      {r2Deals.some(row=>row.status!=="completed")&&<section className="activeBidSection r2InProcess">
-        <div className="activeBidSectionTitle"><h2>R2 In Process</h2><span>{r2Deals.filter(row=>row.status!=="completed").length}</span></div>
-        <div className="r2SummaryRows">{r2Deals.filter(row=>row.status!=="completed").map(row=>{const equipment=r2Items.filter(item=>item.deal_id===row.id),complete=equipment.filter(item=>item.status==="complete").length;return <a key={row.id} href={`/employee/r2-processing?deal=${encodeURIComponent(row.id)}`}><b>{row.po_number}</b><span>{row.customer}</span><span>{row.location_status.replace("_"," ")}</span><span>{complete} of {equipment.length} completed</span><strong>{row.status.replaceAll("_"," ")}</strong></a>})}</div>
-      </section>}
       {sections.map((section) => {
+        if(section.key==="r2_processing")return r2Deals.some(row=>row.status!=="completed")?<section className="activeBidSection r2InProcess" key={section.key}>
+          <div className="activeBidSectionTitle"><h2>R2 In Process</h2><span>{r2Deals.filter(row=>row.status!=="completed").length}</span></div>
+          <div className="r2SummaryRows">{r2Deals.filter(row=>row.status!=="completed").map(row=>{const equipment=r2Items.filter(item=>item.deal_id===row.id),complete=equipment.filter(item=>item.status==="complete").length;return <a key={row.id} href={`/employee/r2-processing?deal=${encodeURIComponent(row.id)}`}><b>{row.po_number}</b><span>{row.customer}</span><span>{row.location_status.replace("_"," ")}</span><span>{complete} of {equipment.length} completed</span><strong>{row.status.replaceAll("_"," ")}</strong></a>})}</div>
+        </section>:null;
         const rows = filtered.filter((item) => groupFor(item) === section.key);
         if (!rows.length) return null;
         return (

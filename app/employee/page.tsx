@@ -156,9 +156,6 @@ export default function EmployeeDashboard() {
               >
                 Create New Deal <b>→</b>
               </a>
-              <a className="primaryWorkflowAction" href="/employee/finalize-deal">
-                Finalize a Deal <b>→</b>
-              </a>
               <a href="/employee/customer-bid">
                 Submit Customer Bid <b>→</b>
               </a>
@@ -167,6 +164,9 @@ export default function EmployeeDashboard() {
               </a>
               <a href="/employee/deals">
                 Manage Deals &amp; Awards <b>→</b>
+              </a>
+              <a className="primaryWorkflowAction" href="/employee/finalize-deal">
+                Finalize a Deal <b>→</b>
               </a>
               <a className="greenWorkflowAction" href="/employee/pending-fulfillment">
                 Pending Fulfillment <b>→</b>

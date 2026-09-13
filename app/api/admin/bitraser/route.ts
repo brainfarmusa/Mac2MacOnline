@@ -11,16 +11,9 @@ function credentials(){
  if(!username||!password)throw new Error("BitRaser credentials are not configured in Sites.");
  return{username,password};
 }
-function reportPath(mode:string,value:string){
- if(mode==="report_id"){
-  if(!/^\d+$/.test(value))throw new Error("Enter a numeric BitRaser report ID.");
-  return `/api/report/reportid?Report_ID=${encodeURIComponent(value)}`;
- }
- if(mode==="system_serial"){
-  if(!/^[A-Za-z0-9._:-]+$/.test(value))throw new Error("Enter a valid system serial number.");
-  return `/api/report/systemserial?System_Serial=${encodeURIComponent(value)}`;
- }
- throw new Error("Choose report ID or system serial number.");
+function reportPath(value:string){
+ if(!/^[A-Za-z0-9._:-]+$/.test(value))throw new Error("Enter a valid system serial number.");
+ return `/api/reports/system_serial_no?system_serial_no=${encodeURIComponent(value)}`;
 }
 function safeReport(report:BitRaserReport){
  const info=report.reportInformation||{},summary=report.erasureSummary||{},hardware=report.hardwareInformation||{},tests=report.hardwareTest||{};
@@ -45,9 +38,9 @@ export async function GET(request:Request){
 export async function POST(request:Request){
  const employee=await employeeUser(request);if(!employee)return Response.json({error:"Employee sign-in required."},{status:401,headers:noStore});
  try{
-  const body=await request.json().catch(()=>({})) as Record<string,unknown>,mode=clean(body.mode),value=clean(body.value);
-  if(!value)return Response.json({error:mode==="system_serial"?"Enter a system serial number.":"Enter a report ID."},{status:400,headers:noStore});
-  const {username,password}=credentials(),response=await fetch(`https://api.bitrasercloud.com${reportPath(mode,value)}`,{headers:{Authorization:`Basic ${btoa(`${username}:${password}`)}`,Accept:"application/json"},signal:AbortSignal.timeout(20000)});
+  const body=await request.json().catch(()=>({})) as Record<string,unknown>,value=clean(body.value);
+  if(!value)return Response.json({error:"Enter a system serial number."},{status:400,headers:noStore});
+  const {username,password}=credentials(),response=await fetch(`https://api.bitrasercloud.com${reportPath(value)}`,{headers:{Authorization:`Basic ${btoa(`${username}:${password}`)}`,Accept:"application/json"},signal:AbortSignal.timeout(20000)});
   const data=await response.json().catch(()=>null) as BitRaserReport|null;
   if(!response.ok)throw new Error(response.status===401||response.status===403?"BitRaser rejected the saved username or password.":"BitRaser could not complete the report request.");
   if(!data)throw new Error("BitRaser returned an unreadable response.");

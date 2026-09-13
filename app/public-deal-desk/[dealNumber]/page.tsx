@@ -10,9 +10,7 @@ import {
 } from "react";
 import { Shell } from "@/components/SiteShell";
 import { detectProductCategory } from "@/lib/productCategory";
-import { dealSpreadsheetFilename } from "@/lib/dealFilename";
 import {
-  downloadBidSpreadsheet,
   readBidSpreadsheet,
 } from "@/lib/bidSpreadsheet";
 import { currentCustomerSession } from "@/lib/customer-auth";
@@ -315,19 +313,7 @@ export default function DynamicLineItemBid() {
   }
   function downloadSheet() {
     if (!deal) return;
-    downloadBidSpreadsheet(
-      deal.deal_number,
-      lines.length,
-      [
-        ...headers.map((header) => ({
-          header,
-          value: (index: number) => lines[index].values[header] || "",
-        })),
-        { header: "Qty", value: (index: number) => lines[index].quantity },
-      ],
-      dealSpreadsheetFilename(deal),
-      { awardMode: multipleAwards ? "multiple" : "single" },
-    );
+    window.location.href=`/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`;
   }
   useEffect(() => {
     if (

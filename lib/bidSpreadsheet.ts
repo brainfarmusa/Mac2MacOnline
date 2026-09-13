@@ -11,6 +11,7 @@ export type ImportedBidRow = {
 };
 export type BidSpreadsheetOptions = {
   awardMode?: "single" | "multiple";
+  picture?: { bytes: Uint8Array; contentType: string };
 };
 
 const xmlEscape = (value: string | number) =>
@@ -55,7 +56,7 @@ const inlineCell = (
 function displayBidName(dealNumber: string, assignedFileName?: string) {
   return (assignedFileName?.trim() || `${dealNumber}-Customer-Bid.xlsx`)
     .replace(/\.xlsx$/i, "")
-    .replace(/[-_]+/g, " ")
+    .replace(/_+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -719,9 +720,9 @@ export function buildBidSpreadsheet(
     title = displayBidName(dealNumber, assignedFileName),
     notes = `LOT NOTES: ${buildLotNotes(rowCount, preparedColumns)}`;
   const spacerXml = `<row r="1" ht="36" customHeight="1"></row>`;
-  const titleXml = `<row r="2" ht="28" customHeight="1">${inlineCell("B2", title, 7)}</row>`,
-    notesXml = `<row r="3" ht="30" customHeight="1">${inlineCell("B3", notes, 8)}</row>`;
-  const headerXml = `<row r="4" ht="24" customHeight="1">${headers.map((value, index) => inlineCell(`${columnName(index + 1)}4`, value, 1)).join("")}</row>`;
+  const titleXml = `<row r="2">${inlineCell("B2", title, 7)}</row>`,
+    notesXml = `<row r="3">${inlineCell("B3", notes, 8)}</row>`;
+  const headerXml = `<row r="4">${headers.map((value, index) => inlineCell(`${columnName(index + 1)}4`, value === "Line" ? "LINE #" : value === "Unit Bid" ? "UNIT BID (USD)" : value === "Total Bid" ? "TOTAL BID (USD)" : value.toUpperCase(), 1)).join("")}</row>`;
   const subtotalRows: number[] = [];
   let currentGroupRows: number[] = [];
   // Multiple-award generation only inserts subtotal rows. Every source-backed
@@ -758,7 +759,7 @@ export function buildBidSpreadsheet(
         .map((value, index) => {
           const header = headers[index - 1] || "";
           const style = index === 0
-            ? 3
+            ? 0
             : /description|comments?|notes?/i.test(header)
               ? entry.dataIndex % 2 === 0
                 ? 10
@@ -782,21 +783,26 @@ export function buildBidSpreadsheet(
       : `SUM(${column}5:${column}${grandRow - 1})`;
   const grandCells = headers.map((_, index) => {
     const column = columnName(index + 1);
+    if (column === "B")
+      return inlineCell(`${column}${grandRow}`, "TOTAL UNITS:", 5);
     if (column === qtyColumnName)
       return `<c r="${column}${grandRow}" s="5"><f>${sumRows(column)}</f><v>0</v></c>`;
-    if (column === unitColumn)
-      return `<c r="${column}${grandRow}" s="5" t="inlineStr"><is><t>GRAND TOTAL</t></is></c>`;
     if (column === totalColumn)
       return `<c r="${column}${grandRow}" s="6"><f>${sumRows(column)}</f><v>0</v></c>`;
     return inlineCell(`${column}${grandRow}`, "", 5);
   }).join("");
   const grandXml = `<row r="${grandRow}">${grandCells}</row>`;
-  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${totalColumn}${grandRow}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="5" customWidth="1"/>${headers.map((header, index) => `<col min="${index + 2}" max="${index + 2}" width="${bidColumnWidth(header, tableRows.map((row) => row[index + 1] ?? ""))}" customWidth="1"/>`).join("")}</cols><sheetData>${spacerXml}${titleXml}${notesXml}${headerXml}${rowsXml}${grandXml}</sheetData><autoFilter ref="B4:${totalColumn}${grandRow - 1}"/><mergeCells count="2"><mergeCell ref="B2:${totalColumn}2"/><mergeCell ref="B3:${totalColumn}3"/></mergeCells></worksheet>`;
-  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="14"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEAF4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF123A59"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF7F8C96"/></left><right style="thin"><color rgb="FF7F8C96"/></right><top style="thin"><color rgb="FF7F8C96"/></top><bottom style="thin"><color rgb="FF7F8C96"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="12"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" wrapText="1" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" wrapText="1" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" wrapText="1" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const warningRow=grandRow+1,instructionRow=grandRow+2,pictureRow=grandRow+4,hasPicture=Boolean(options.picture?.bytes?.length),lastRow=hasPicture?pictureRow+15:instructionRow;
+  const footerXml=`<row r="${warningRow}">${inlineCell(`B${warningRow}`,"DO NOT SORT, DELETE, MOVE, OR MODIFY ROW ORDER.",12)}</row><row r="${instructionRow}" ht="40.5" customHeight="1">${inlineCell(`B${instructionRow}`,"Please return completed bid sheet by the listed due date/time. Award may be based on take-all offer, line-item pricing, or best overall offer.",13)}</row>`;
+  const drawingTag=hasPicture?'<drawing r:id="rId1"/>':"";
+  const totalLabelEnd=columnName(Math.max(1,qtyHeaderIndex-1));
+  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${totalColumn}${lastRow}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="6.14" customWidth="1"/>${headers.map((header, index) => `<col min="${index + 2}" max="${index + 2}" width="${bidColumnWidth(header, tableRows.map((row) => row[index + 1] ?? ""))}" customWidth="1"/>`).join("")}</cols><sheetData>${spacerXml}${titleXml}${notesXml}${headerXml}${rowsXml}${grandXml}${footerXml}</sheetData><mergeCells count="5"><mergeCell ref="B2:${totalColumn}2"/><mergeCell ref="B3:${totalColumn}3"/><mergeCell ref="B${grandRow}:${totalLabelEnd}${grandRow}"/><mergeCell ref="B${warningRow}:${totalColumn}${warningRow}"/><mergeCell ref="B${instructionRow}:${totalColumn}${instructionRow}"/></mergeCells>${drawingTag}</worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/></numFmts><fonts count="6"><font><sz val="12"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="12"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="12"/><name val="Arial"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="14"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="14"/><name val="Arial"/></font><font><b/><color rgb="FFCC0000"/><sz val="10"/><name val="Arial"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF000000"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="14"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="4" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Customer Bid" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="191029" calcMode="auto" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>`;
-  const files = {
+  const pictureType=options.picture?.contentType||"",pictureExtension=pictureType.includes("png")?"png":pictureType.includes("gif")?"gif":pictureType.includes("webp")?"webp":"jpeg";
+  const files:Record<string,Uint8Array> = {
     "[Content_Types].xml": strToU8(
-      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${hasPicture?`<Default Extension="${pictureExtension}" ContentType="${xmlEscape(pictureType||"image/jpeg")}"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`:""}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
     ),
     "_rels/.rels": strToU8(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
@@ -805,21 +811,15 @@ export function buildBidSpreadsheet(
     "xl/_rels/workbook.xml.rels": strToU8(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
     ),
-    "xl/styles.xml": strToU8(
-      styles
-        .replace('<fonts count="3">', '<fonts count="4">')
-        .replace(
-          "</fonts><fills",
-          '<font><b/><color rgb="FFFFFFFF"/><sz val="18"/><name val="Calibri"/></font></fonts><fills',
-        )
-        .replace(
-          '<xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment vertical="center"/></xf>',
-          '<xf numFmtId="0" fontId="3" fillId="4" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="center" vertical="center"/></xf>',
-        )
-        .replaceAll('<sz val="11"/>', '<sz val="12"/>'),
-    ),
+    "xl/styles.xml": strToU8(styles),
     "xl/worksheets/sheet1.xml": strToU8(worksheet),
   };
+  if(hasPicture&&options.picture){
+    files[`xl/media/deal-photo.${pictureExtension}`]=options.picture.bytes;
+    files["xl/worksheets/_rels/sheet1.xml.rels"]=strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
+    files["xl/drawings/drawing1.xml"]=strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:oneCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${pictureRow-1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="4000500" cy="2667000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Deal photo"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`);
+    files["xl/drawings/_rels/drawing1.xml.rels"]=strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/deal-photo.${pictureExtension}"/></Relationships>`);
+  }
   const zipped = zipSync(files, { level: 6 });
   return {
     bytes: zipped,

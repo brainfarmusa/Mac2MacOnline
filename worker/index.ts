@@ -48,6 +48,16 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
 }
 
+function employeeGuideFallback(message:string,guide:string){
+  const terms=message.toLowerCase().match(/[a-z0-9]+/g)||[];
+  const aliases:Record<string,string[]>={po:["finalize","purchase"],purchase:["finalize","purchase"],so:["finalize","sales"],sales:["finalize","sales"],spreadsheet:["bid workbook","creation"],workbook:["bid workbook","creation"],bid:["bids","bid workbook"],imei:["r2/imei"],serial:["r2/imei"],mdm:["r2/imei"],contact:["contacts"],customer:["contacts"],vendor:["contacts"],report:["reports"],commission:["reports"],cost:["cost"],grade:["cost","r2/imei"]};
+  const wanted=new Set(terms.flatMap(term=>[term,...(aliases[term]||[])]));
+  const sections=guide.split(/\n\s*\n/).filter(Boolean);
+  const ranked=sections.map(section=>({section,score:[...wanted].reduce((sum,term)=>sum+(section.toLowerCase().includes(term)?1:0),0)})).sort((a,b)=>b.score-a.score);
+  const selected=ranked[0]?.score?ranked[0].section:"";
+  return selected?`I could not reach the conversational service, but the private employee guide says:\n\n${selected}`:"Lorraine could not reach the conversational service. Please use the Deal Workbook menu for this procedure and try again shortly.";
+}
+
 async function answerLorraine(request: Request, env: Env): Promise<Response> {
   const requestOrigin = request.headers.get("origin");
   if (requestOrigin && requestOrigin !== new URL(request.url).origin) return json({ error: "Request not allowed." }, 403);
@@ -80,15 +90,18 @@ ${employeeKnowledge||"No private guide is configured. Tell the employee that pro
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: "gpt-5-mini", instructions, input: [...history, { role: "user", content: message }], max_output_tokens: 700, store: false }),
+    body: JSON.stringify({ model: "gpt-4.1-mini", instructions, input: [...history, { role: "user", content: message }], max_output_tokens: 900, store: false }),
   });
   if (!response.ok) {
-    console.error("Lorraine OpenAI request failed", response.status);
+    console.error("Lorraine OpenAI request failed",response.status,(await response.text()).slice(0,500));
+    if(employee&&employeeKnowledge)return json({answer:employeeGuideFallback(message,employeeKnowledge),accessLevel:employee.role,displayName:employee.displayName,fallback:true});
     return json({ error: "Lorraine could not answer right now. Please try again shortly." }, 502);
   }
   const result = await response.json() as { output_text?: string; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
   const answer = result.output_text || result.output?.flatMap((item) => item.content || []).find((item) => item.type === "output_text")?.text;
-  return answer ? json({ answer,accessLevel:employee?.role||"public" }) : json({ error: "Lorraine could not answer right now. Please try again shortly." }, 502);
+  if(answer)return json({answer,accessLevel:employee?.role||"public",displayName:employee?.displayName||""});
+  if(employee&&employeeKnowledge)return json({answer:employeeGuideFallback(message,employeeKnowledge),accessLevel:employee.role,displayName:employee.displayName,fallback:true});
+  return json({error:"Lorraine could not answer right now. Please try again shortly."},502);
 }
 
 interface ExecutionContext {

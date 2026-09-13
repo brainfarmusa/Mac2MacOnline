@@ -6,6 +6,7 @@ interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   OPENAI_API_KEY?: string;
+  LORRAINE_EMPLOYEE_KNOWLEDGE?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -43,60 +44,18 @@ async function employeeAccess(request:Request):Promise<EmployeeAccess|null>{
   return profile?{id:user.id,email:user.email,role:profile.role,displayName:profile.display_name||user.email.split("@")[0],token:authorization}:null;
 }
 
-async function permittedRows(path:string,employee:EmployeeAccess){
-  const response=await fetch(`${PDD_SUPABASE_URL}/rest/v1/${path}`,{headers:{apikey:PDD_SUPABASE_KEY,Authorization:employee.token}});
-  if(!response.ok)return [];
-  return await response.json() as unknown[];
-}
-
-async function permittedCount(table:string,employee:EmployeeAccess){
-  const response=await fetch(`${PDD_SUPABASE_URL}/rest/v1/${table}?select=id`,{headers:{apikey:PDD_SUPABASE_KEY,Authorization:employee.token,Prefer:"count=exact",Range:"0-0"}});
-  if(!response.ok)return null;
-  const range=response.headers.get("content-range")||"";
-  const total=Number(range.split("/")[1]);
-  return Number.isFinite(total)?total:null;
-}
-
-async function internalContext(message:string,employee:EmployeeAccess){
-  const text=message.toLowerCase();
-  const wantsOrders=/order|sales|purchase|revenue|po\b|so\b/.test(text);
-  const wantsDeals=/deal|bid|award|offer|closing|pending/.test(text);
-  const wantsContacts=/customer|vendor|prospect|contact/.test(text);
-  const sections:string[]=[`Authenticated employee: ${employee.displayName} (${employee.role}). The following data was retrieved with this employee's own access token and Supabase RLS permissions.`];
-  if(wantsOrders||(!wantsDeals&&!wantsContacts)){
-    const [salesCount,purchaseCount,sales,purchase]=await Promise.all([
-      permittedCount("pdd_sales_orders",employee),
-      permittedCount("pdd_purchase_orders",employee),
-      permittedRows("pdd_sales_orders?select=so_number,deal_number,customer_company,sales_total,sales_owner_name,created_at,order_status&order=created_at.desc&limit=30",employee),
-      permittedRows("pdd_purchase_orders?select=po_number,deal_number,vendor_total,purchasing_owner_name,created_at,order_status,vendor:pdd_vendors(company_name)&order=created_at.desc&limit=30",employee)
-    ]);
-    sections.push(`ORDER COUNTS: sales orders=${salesCount??"unavailable"}; purchase orders=${purchaseCount??"unavailable"}.`);
-    sections.push(`RECENT SALES ORDERS: ${JSON.stringify(sales)}`);
-    sections.push(`RECENT PURCHASE ORDERS: ${JSON.stringify(purchase)}`);
-  }
-  if(wantsDeals){
-    const deals=await permittedRows("pdd_public_deals?select=deal_number,title,status,direction,quantity,closes_at,created_at&order=created_at.desc&limit=50",employee);
-    sections.push(`AUTHORIZED DEALS: ${JSON.stringify(deals)}`);
-  }
-  if(wantsContacts){
-    const [vendors,prospects]=await Promise.all([
-      permittedRows("pdd_vendors?select=company_name,contact_name,email,phone,created_by_name,created_at&order=created_at.desc&limit=40",employee),
-      permittedRows("pdd_end_user_prospects?select=company_name,contact_name,email,phone,assigned_employee_name,status,priority&order=updated_at.desc&limit=40",employee)
-    ]);
-    sections.push(`AUTHORIZED VENDORS: ${JSON.stringify(vendors)}`);
-    sections.push(`AUTHORIZED PROSPECTS: ${JSON.stringify(prospects)}`);
-  }
-  return sections.join("\n");
-}
-
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
 }
 
 async function answerLorraine(request: Request, env: Env): Promise<Response> {
-  if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   const requestOrigin = request.headers.get("origin");
   if (requestOrigin && requestOrigin !== new URL(request.url).origin) return json({ error: "Request not allowed." }, 403);
+  if(request.method==="GET"){
+    const employee=await employeeAccess(request);
+    return employee?json({employee:true,role:employee.role,displayName:employee.displayName}):json({employee:false});
+  }
+  if (request.method !== "POST") return json({ error: "Method not allowed." }, 405);
   if (!env.OPENAI_API_KEY) return json({ error: "Lorraine is being connected. Please try again soon." }, 503);
   let body: { message?: unknown; history?: unknown };
   try { body = await request.json(); } catch { return json({ error: "Please enter a question." }, 400); }
@@ -109,14 +68,15 @@ async function answerLorraine(request: Request, env: Env): Promise<Response> {
     return [{ role: candidate.role, content: candidate.content.slice(0, 1600) }];
   }) : [];
   const employee=await employeeAccess(request);
-  const companyContext=employee?await internalContext(message,employee):"No authenticated employee session was supplied. Answer only from public Mac2MacOnline information and do not reveal company records.";
+  const employeeKnowledge=employee?String(env.LORRAINE_EMPLOYEE_KNOWLEDGE||"").slice(0,24000):"";
   const instructions=`${LORRAINE_SYSTEM_PROMPT}
 
 ACCESS MODE: ${employee?`Authenticated ${employee.role}`:"Public"}.
-For authenticated employees, answer questions using only COMPANY DATA below. This data has already been filtered through the signed-in user's existing authorization and row-level security. Never infer or reveal records absent from that data. You may summarize, count, compare, and explain it, but you must remain read-only. For public users, never answer from internal company records.
+For authenticated employees, use the private employee operations guide below to explain the Deal Workbook, deals, bids, spreadsheets, awards, IMEI/serial results, R2 processing, contacts, orders, finalization, and the relationship between the Mac2MacOnline and BrainFarm sites. The guide contains procedures only. No live deal, customer, vendor, order, bid, IMEI, employee, or financial records are supplied to you. Never claim to know a current record or value; direct the employee to the relevant Deal Workbook screen. Remain read-only and never claim that you changed or submitted anything.
+For public or customer users, never reveal, summarize, quote, or rely on the private employee guide. Answer only from public Mac2MacOnline information.
 
-COMPANY DATA:
-${companyContext}`;
+PRIVATE EMPLOYEE OPERATIONS GUIDE:
+${employeeKnowledge||"No private guide is configured. Tell the employee that procedural guidance is temporarily unavailable."}`;
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${env.OPENAI_API_KEY}`, "content-type": "application/json" },

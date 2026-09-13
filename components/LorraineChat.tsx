@@ -9,8 +9,12 @@ export default function LorraineChat(){
   const [open,setOpen]=useState(false);
   const [input,setInput]=useState("");
   const [busy,setBusy]=useState(false);
+  const [employeeMode,setEmployeeMode]=useState(false);
+  const [employeeName,setEmployeeName]=useState("");
   const messagesRef=useRef<HTMLDivElement>(null);
   const [messages,setMessages]=useState<Message[]>([{role:"assistant",content:"Hello, I’m Lorraine. Ask me about buying, selling, consigning, trade-ins, equipment categories, or the Live Bid Board."}]);
+
+  useEffect(()=>{let active=true;(async()=>{const session=await currentPddSession();if(!session?.access_token)return;try{const response=await fetch("/api/lorraine",{headers:{Authorization:`Bearer ${session.access_token}`}});const data=await response.json() as {employee?:boolean;displayName?:string};if(active&&response.ok&&data.employee){setEmployeeMode(true);setEmployeeName(data.displayName||"");setMessages([{role:"assistant",content:`Hello${data.displayName?` ${data.displayName}`:""}, I’m Lorraine. Ask me how to use the Deal Workbook, create and manage deals, prepare bid spreadsheets, process bids and awards, check serials, or complete orders.`}])}}catch{/* Keep the public assistant when no verified employee session is available. */}})();return()=>{active=false}},[]);
 
   useEffect(()=>{
     const list=messagesRef.current;
@@ -50,13 +54,13 @@ export default function LorraineChat(){
   return <>
     <button className={`lorraineLauncher${busy?" thinking":""}`} type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open}>
       <img src="/lorraine-icon.jpeg?v=2" alt="" aria-hidden="true"/>
-      <span>{open?"Close Lorraine":"Ask Lorraine"}</span>
+      <span>{open?"Close Lorraine":employeeMode?"Ask Employee Lorraine":"Ask Lorraine"}</span>
     </button>
     {open&&<section className={`lorrainePanel${busy?" thinking":""}`} aria-label="Chat with Lorraine">
-      <header><div className="lorraineIdentity"><img src="/lorraine-icon.jpeg?v=2" alt="Lorraine"/><div><strong>Lorraine</strong><span>Mac2MacOnline AI assistant</span></div></div><button type="button" onClick={()=>setOpen(false)} aria-label="Close chat">×</button></header>
+      <header><div className="lorraineIdentity"><img src="/lorraine-icon.jpeg?v=2" alt="Lorraine"/><div><strong>Lorraine</strong><span>{employeeMode?`Employee operations expert${employeeName?` · ${employeeName}`:""}`:"Mac2MacOnline AI assistant"}</span></div></div><button type="button" onClick={()=>setOpen(false)} aria-label="Close chat">×</button></header>
       <div ref={messagesRef} className="lorraineMessages" aria-live="polite">{messages.map((message,index)=><div key={index} className={`lorraineMessage ${message.role}`}>{message.content}</div>)}</div>
       <form onSubmit={submit}><input value={input} onChange={event=>setInput(event.target.value)} maxLength={1600} autoComplete="off" placeholder="Ask Lorraine a question…" aria-label="Question for Lorraine"/><button type="submit" disabled={busy}>{busy?"…":"Send"}</button></form>
-      <small>Lorraine provides information only and cannot change site or account data.</small>
+      <small>{employeeMode?"Employee-only procedural guidance · no live company records shared · read-only.":"Lorraine provides public information only and cannot change site or account data."}</small>
     </section>}
   </>;
 }

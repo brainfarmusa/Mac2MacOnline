@@ -28,6 +28,7 @@ import "./deal-details.css";
 import "./vendor.css";
 import "./compact.css";
 import "./photo-fit.css";
+import "./r2-choice.css";
 
 type Profile = {
   email: string;
@@ -2084,6 +2085,17 @@ export default function DealBuilder() {
                           <span>
                             Use Box # or Lot # groups and add a subtotal row after
                             each group so different boxes/lots can be awarded separately.
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.location.assign("/employee/r2-processing?new=1")}
+                        >
+                          <strong>R2 In-Process Deal</strong>
+                          <span>
+                            Track inbound or in-house equipment by serial number
+                            through testing, BitRaser data wipe and grading.
+                            Quantifying is skipped until processing is complete.
                           </span>
                         </button>
                       </div>

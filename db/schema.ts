@@ -192,3 +192,29 @@ export const exportComplianceSubmissions = sqliteTable("export_compliance_submis
   status: text("status").notNull().default("pending_review"),
   createdAt: text("created_at").notNull(),
 });
+
+export const r2ProcessingDeals = sqliteTable("r2_processing_deals", {
+  id: text("id").primaryKey(),
+  poNumber: text("po_number").notNull(),
+  customer: text("customer").notNull(),
+  locationStatus: text("location_status").notNull().default("inbound"),
+  status: text("status").notNull().default("in_process"),
+  notes: text("notes").notNull().default(""),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const r2ProcessingItems = sqliteTable("r2_processing_items", {
+  id: text("id").primaryKey(),
+  dealId: text("deal_id").notNull(),
+  serialNumber: text("serial_number").notNull().unique(),
+  technician: text("technician").notNull(),
+  modelSku: text("model_sku").notNull().default(""),
+  techDataJson: text("tech_data_json").notNull().default("{}"),
+  bitraserReportId: text("bitraser_report_id").notNull().default(""),
+  bitraserDataJson: text("bitraser_data_json").notNull().default("{}"),
+  status: text("status").notNull().default("testing"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

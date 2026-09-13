@@ -222,6 +222,9 @@ export default function EmployeeDashboard() {
               Open the approved data-erasure system used during R2 processing.
             </p>
             <div className="workbookActionList">
+              <a className="greenWorkflowAction" href="/employee/r2-processing">
+                In-Process R2 Deals <b>→</b>
+              </a>
               <a href="/employee/bitraser">
                 BitRaser Connection <b>→</b>
               </a>

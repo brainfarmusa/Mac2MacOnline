@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clearPddSession, currentPddSession } from "../../../lib/pdd-auth";
 import "./active-bids.css";
+import "./r2-summary.css";
 
 type PublicLine = {
   line: number;
@@ -57,6 +58,8 @@ type Estimate = {
   updated_by: string;
   updated_at: string;
 };
+type R2Deal={id:string;po_number:string;customer:string;location_status:string;status:string;updated_at:string};
+type R2Item={deal_id:string;status:string;tech_data:Record<string,string>};
 type Group =
   | "want_to_buy"
   | "open"
@@ -139,6 +142,8 @@ function groupFor(deal: Deal): Group {
 export default function ActiveBidsPage() {
   const [deals, setDeals] = useState<Deal[]>([]),
     [bids, setBids] = useState<Bid[]>([]),
+    [r2Deals,setR2Deals]=useState<R2Deal[]>([]),
+    [r2Items,setR2Items]=useState<R2Item[]>([]),
     [comments, setComments] = useState<Comment[]>([]),
     [estimates, setEstimates] = useState<Estimate[]>([]),
     [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({}),
@@ -184,11 +189,12 @@ export default function ActiveBidsPage() {
       setToken(session.access_token);
       const headers = { Authorization: `Bearer ${session.access_token}` };
       try {
-        const [dealResponse, bidResponse] = await Promise.all([
+        const [dealResponse, bidResponse,r2Response] = await Promise.all([
           fetch("/api/admin/deals", { headers }),
           fetch("/api/admin/bids", { headers }),
+          fetch("/api/admin/r2-processing",{headers}),
         ]);
-        if (dealResponse.status === 401 || bidResponse.status === 401) {
+        if (dealResponse.status === 401 || bidResponse.status === 401 || r2Response.status===401) {
           clearPddSession();
           window.location.replace("/employee-login");
           return;
@@ -196,7 +202,8 @@ export default function ActiveBidsPage() {
         if (!dealResponse.ok || !bidResponse.ok)
           throw new Error("Active bid data could not be loaded.");
         const dealData = await dealResponse.json(),
-          bidData = await bidResponse.json();
+          bidData = await bidResponse.json(),
+          r2Data=r2Response.ok?await r2Response.json():{deals:[],items:[]};
         setDeals(dealData.deals || []);
         setComments(dealData.comments || []);
         setEstimates(dealData.estimates || []);
@@ -209,6 +216,8 @@ export default function ActiveBidsPage() {
           ),
         );
         setBids(bidData.bids || []);
+        setR2Deals(r2Data.deals||[]);
+        setR2Items(r2Data.items||[]);
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -636,6 +645,10 @@ export default function ActiveBidsPage() {
           pending fulfillment
         </span>
       </div>
+      {r2Deals.some(row=>row.status!=="completed")&&<section className="activeBidSection r2InProcess">
+        <div className="activeBidSectionTitle"><h2>R2 In Process</h2><span>{r2Deals.filter(row=>row.status!=="completed").length}</span></div>
+        <div className="r2SummaryRows">{r2Deals.filter(row=>row.status!=="completed").map(row=>{const equipment=r2Items.filter(item=>item.deal_id===row.id),complete=equipment.filter(item=>item.status==="complete").length;return <a key={row.id} href={`/employee/r2-processing?deal=${encodeURIComponent(row.id)}`}><b>{row.po_number}</b><span>{row.customer}</span><span>{row.location_status.replace("_"," ")}</span><span>{complete} of {equipment.length} completed</span><strong>{row.status.replaceAll("_"," ")}</strong></a>})}</div>
+      </section>}
       {sections.map((section) => {
         const rows = filtered.filter((item) => groupFor(item) === section.key);
         if (!rows.length) return null;

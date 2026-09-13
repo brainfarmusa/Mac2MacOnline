@@ -1,0 +1,2 @@
+.awardModeChoices{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:900px){.awardModeChoices{grid-template-columns:1fr}}

@@ -44,8 +44,9 @@ export default function LorraineChat(){
       const headers:Record<string,string>={"content-type":"application/json"};
       if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;
       const response=await fetch("/api/lorraine",{method:"POST",headers,body:JSON.stringify({message,history:prior})});
-      const data=await response.json() as {answer?:string;error?:string;accessLevel?:string};
+      const data=await response.json() as {answer?:string;error?:string;accessLevel?:string;displayName?:string};
       if(!response.ok||!data.answer)throw new Error(data.error||"Lorraine could not answer right now.");
+      if(data.accessLevel&&data.accessLevel!=="public"){setEmployeeMode(true);setEmployeeName(data.displayName||"");}
       await revealAnswer(data.answer);
     }catch(error){setMessages(current=>[...current,{role:"assistant",content:error instanceof Error?error.message:"Lorraine could not answer right now. Please try again."}]);}
     finally{setBusy(false);}

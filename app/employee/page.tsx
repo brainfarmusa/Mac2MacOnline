@@ -222,6 +222,9 @@ export default function EmployeeDashboard() {
               Open the approved data-erasure system used during R2 processing.
             </p>
             <div className="workbookActionList">
+              <a href="/employee/bitraser">
+                BitRaser Connection <b>→</b>
+              </a>
               <a
                 href="https://www.bitraser.com/"
                 target="_blank"

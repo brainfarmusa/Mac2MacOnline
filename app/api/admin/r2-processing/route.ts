@@ -23,8 +23,10 @@ export async function POST(request:Request){
   if(action==="create_deal"){
    const poNumber=clean(body.poNumber,80),customer=clean(body.customer,180),locationStatus=clean(body.locationStatus,30);
    if(!poNumber||!customer||!locations.has(locationStatus))return Response.json({error:"PO number, customer and location are required."},{status:400,headers});
-   const id=crypto.randomUUID();await env.DB.prepare("INSERT INTO r2_processing_deals (id,po_number,customer,location_status,status,notes,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(id,poNumber,customer,locationStatus,"in_process",clean(body.notes,2000),employee.email,now,now).run();
-   return Response.json({ok:true,id},{headers});
+   const id=crypto.randomUUID(),uploadName=clean(body.uploadName,220),notes=[clean(body.notes,1800),uploadName?`Original inventory: ${uploadName}`:""].filter(Boolean).join("\n"),rawItems=Array.isArray(body.items)?body.items.slice(0,5000):[],seen=new Set<string>(),items=rawItems.map((row:any)=>({serialNumber:clean(row?.serialNumber,160).toUpperCase(),modelSku:clean(row?.modelSku,500)})).filter(row=>row.serialNumber&&!seen.has(row.serialNumber)&&seen.add(row.serialNumber));
+   await env.DB.prepare("INSERT INTO r2_processing_deals (id,po_number,customer,location_status,status,notes,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(id,poNumber,customer,locationStatus,"in_process",notes,employee.email,now,now).run();
+   for(let offset=0;offset<items.length;offset+=75)await env.DB.batch(items.slice(offset,offset+75).map(row=>env.DB.prepare("INSERT OR IGNORE INTO r2_processing_items (id,deal_id,serial_number,technician,model_sku,tech_data_json,bitraser_report_id,bitraser_data_json,status,created_at,updated_at) VALUES (?,?,?,?,?,'{}','','{}','testing',?,?)").bind(crypto.randomUUID(),id,row.serialNumber,employee.displayName,row.modelSku,now,now)));
+   return Response.json({ok:true,id,itemCount:items.length},{headers});
   }
   if(action==="save_item"){
    const dealId=clean(body.dealId,80),serialNumber=clean(body.serialNumber,160).toUpperCase(),technician=clean(body.technician,160)||employee.displayName,status=clean(body.status,30),techData=body.techData&&typeof body.techData==="object"?body.techData:{};

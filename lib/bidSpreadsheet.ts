@@ -71,6 +71,28 @@ const isBoxHeader = (header: string) =>
   /^(?:(?:box|lot|container)(?:\s*(?:#|number|no\.?))?)$/i.test(
     header.trim(),
   );
+const normalizedBidHeader = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+const isSourcePricingColumn = (header: string) =>
+  [
+    "price",
+    "cost",
+    "amount",
+    "unit price",
+    "unit cost",
+    "unit bid",
+    "bid price",
+    "total",
+    "total price",
+    "total cost",
+    "total bid",
+    "extended price",
+  ].includes(normalizedBidHeader(header));
 
 // Keep every customer-facing deal workbook in the same predictable order.
 // Unrecognized equipment-specific fields remain in their original order in
@@ -407,7 +429,10 @@ async function downloadTabbedBidSpreadsheet(
     value: () => 1,
   };
   const details = orderDealColumns(
-    columns.filter((column) => column !== source && column !== qty),
+    columns.filter(
+      (column) =>
+        column !== source && column !== qty && !isSourcePricingColumn(column.header),
+    ),
   );
   const gradeDetails = details.filter(isGradeColumn);
   const mainDetails = details.filter((column) => !isGradeColumn(column));
@@ -680,7 +705,10 @@ export function buildBidSpreadsheet(
   const qtyColumn =
     qtyIndex >= 0 ? preparedColumns[qtyIndex] : { header: "Qty", value: () => 1 };
   const detailColumns = orderDealColumns(
-    preparedColumns.filter((_, index) => index !== qtyIndex),
+    preparedColumns.filter(
+      (column, index) =>
+        index !== qtyIndex && !isSourcePricingColumn(column.header),
+    ),
   );
   const gradeColumns = detailColumns.filter(isGradeColumn);
   const mainColumns = detailColumns.filter((column) => !isGradeColumn(column));
@@ -994,26 +1022,25 @@ export async function readBidSpreadsheet(
     bidIndex = -1,
     commentsIndex = -1;
   const imported: ImportedBidRow[] = [];
-  const normalizedHeader = (value: string) =>
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/\([^)]*\)/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
   for (const row of rows) {
-    const normalized = row.map((value) => normalizedHeader(value || ""));
+    const normalized = row.map((value) => normalizedBidHeader(value || ""));
     const possibleLineIndex = normalized.findIndex((value) =>
       ["line", "line id", "lbb line id", "pdd line id"].includes(value),
     );
     if (possibleLineIndex >= 0) {
       lineIndex = possibleLineIndex;
-      bidIndex = normalized.findIndex((value) =>
-        ["unit bid", "unit price", "bid price"].includes(value),
-      );
-      commentsIndex = normalized.findIndex((value) =>
-        ["bid comments", "bid comment"].includes(value),
-      );
+      const bidIndexes = normalized
+        .map((value, index) =>
+          ["unit bid", "unit price", "bid price"].includes(value) ? index : -1,
+        )
+        .filter((index) => index >= 0);
+      bidIndex = bidIndexes.at(-1) ?? -1;
+      const commentIndexes = normalized
+        .map((value, index) =>
+          ["bid comments", "bid comment"].includes(value) ? index : -1,
+        )
+        .filter((index) => index >= 0);
+      commentsIndex = commentIndexes.at(-1) ?? -1;
       continue;
     }
     if (lineIndex >= 0 && bidIndex >= 0 && row.some(Boolean))

@@ -12,3 +12,13 @@ test("build produces a deployable Sites artifact", async () => {
   assert.equal(typeof hosting.project_id, "string");
   assert.ok(hosting.project_id.length > 0);
 });
+
+test("bid validation only selects columns present on public deals", async () => {
+  const route = await readFile(
+    new URL("../app/api/line-item-bids/route.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /const dealSelect = "deal_number,quantity,public_lines"/);
+  assert.doesNotMatch(route, /dealSelect = .*owner_name/);
+  assert.doesNotMatch(route, /dealSelect = .*owner_email/);
+});

@@ -228,6 +228,9 @@ export default function EmployeeDashboard() {
               <a href="/employee/bitraser">
                 BitRaser Connection <b>→</b>
               </a>
+              <a href="/employee/imei-checker">
+                IMEI &amp; Serial Checker <b>→</b>
+              </a>
               <a
                 href="https://www.bitraser.com/"
                 target="_blank"

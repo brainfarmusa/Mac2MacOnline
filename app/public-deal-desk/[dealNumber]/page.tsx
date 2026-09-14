@@ -17,6 +17,7 @@ import { currentCustomerSession } from "@/lib/customer-auth";
 import type { PddSession } from "@/lib/pdd-auth";
 import DealSellForm from "@/components/DealSellForm";
 import DealViewerPresence from "@/components/DealViewerPresence";
+import SpreadsheetDownloadLink,{downloadSpreadsheet} from "@/components/SpreadsheetDownloadLink";
 import {
   groupBidLinesByBox,
   isMultipleAwardDeal,
@@ -313,7 +314,7 @@ export default function DynamicLineItemBid() {
   }
   function downloadSheet() {
     if (!deal) return;
-    window.location.href=`/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`;
+    void downloadSpreadsheet(`/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`);
   }
   useEffect(() => {
     if (
@@ -643,12 +644,12 @@ export default function DynamicLineItemBid() {
             </div>
             <div className="lineBidHeroTools">
               <DealViewerPresence dealNumber={deal.deal_number} />
-              <a
+              <SpreadsheetDownloadLink
                 className="lineBidDownload"
                 href={`/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`}
               >
                 Download Bid Excel
-              </a>
+              </SpreadsheetDownloadLink>
             </div>
           </div>
           <p>{isWtb ? `CUSTOM WANT-TO-SELL PAGE · ${deal.category || "TECHNOLOGY"}` : "LINE-ITEM BID ENTRY"}</p>
@@ -915,9 +916,9 @@ export default function DynamicLineItemBid() {
                 notes, then upload it here.
               </p>
               <div className="sheetActions">
-                <a href={`/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`}>
+                <SpreadsheetDownloadLink href={`/api/deals/${encodeURIComponent(deal.deal_number.toLowerCase())}/spreadsheet`}>
                   Download Bid Spreadsheet
-                </a>
+                </SpreadsheetDownloadLink>
                 <label>
                   Upload Completed Spreadsheet
                   <input

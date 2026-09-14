@@ -47,6 +47,7 @@ export function DealWorkbookNav(){
       <a href="/employee/reports">Purchasing &amp; Sales Reports</a>
     </div></details>
     <a className="workbookHome" href="/employee/commissions">Commissions</a>
+    <a className="workbookHome" href="/employee/imei-checker">IMEI Checker</a>
     {isAdmin&&<details><summary>Administration</summary><div><a href="/employee/access">Employee Access</a></div></details>}
   </nav>
 }

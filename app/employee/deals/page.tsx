@@ -716,8 +716,7 @@ export default function DealManagement() {
                             <time>
                               {new Date(item.created_at).toLocaleString()}
                             </time>
-                            {item.author_user_id === currentUserId &&
-                              editingId !== item.id && (
+                            {editingId !== item.id && (
                                 <button
                                   className="editComment"
                                   type="button"
@@ -728,7 +727,7 @@ export default function DealManagement() {
                                 >
                                   Edit
                                 </button>
-                              )}
+                            )}
                             {(item.author_user_id === currentUserId ||
                               currentUserRole === "administrator") &&
                               editingId !== item.id && (

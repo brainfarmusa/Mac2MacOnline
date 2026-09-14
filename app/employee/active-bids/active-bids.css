@@ -490,3 +490,4 @@
     grid-template-columns: 1fr;
   }
 }
+.activeBidRecordLink{display:inline-flex;align-items:center;justify-content:center;min-width:28px;min-height:28px;padding:2px 6px;border:1px solid #77b9de;border-radius:999px;background:#eef8fd;color:#075b92;font-weight:800;text-decoration:none}.activeBidRecordLink:hover,.activeBidRecordLink:focus-visible{background:#d8effb;border-color:#087fc3;text-decoration:underline}

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clearPddSession, currentPddSession } from "../../../lib/pdd-auth";
+import {nextBusinessDate,pacificIso} from "../../../lib/businessDays";
 import "./active-bids.css";
 import "./r2-summary.css";
 
@@ -30,6 +31,7 @@ type Deal = {
     | "archived";
   owner_name: string;
   vendor_name: string;
+  vendor_id: string;
   line_count: number;
   tab_count: number;
   public_lines?: PublicLine[];
@@ -38,6 +40,7 @@ type Bid = {
   internal_bid_number: string;
   deal_number: string;
   company: string;
+  customer_id: string;
   sales_owner_name: string;
   total_bid: number;
   status: "submitted" | "won" | "lost";
@@ -97,23 +100,6 @@ function closeParts(value: string) {
     time: `${parts.hour}:${parts.minute}`,
   };
 }
-function pacificIso(date: string, time: string) {
-  const [year, month, day] = date.split("-").map(Number),
-    [hour, minute] = time.split(":").map(Number),
-    approximate = Date.UTC(year, month - 1, day, hour, minute),
-    offsetName =
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Los_Angeles",
-        timeZoneName: "longOffset",
-      })
-        .formatToParts(new Date(approximate))
-        .find((part) => part.type === "timeZoneName")?.value || "GMT-08:00",
-    match = offsetName.match(/GMT([+-])(\d{2}):(\d{2})/),
-    offset = match
-      ? (match[1] === "+" ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3]))
-      : -480;
-  return new Date(approximate - offset * 60_000).toISOString();
-}
 function categoryFor(deal: Deal) {
   return deal.category || "Other";
 }
@@ -121,6 +107,9 @@ function repInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length || name.toLowerCase() === "unassigned") return "—";
   return `${parts[0]?.[0] || ""}${parts.length > 1 ? parts[parts.length - 1]?.[0] || "" : ""}`.toUpperCase();
+}
+function businessRecordHref(type: "vendors" | "customers", recordId: string) {
+  return `/employee/contacts?type=${type}&record=${encodeURIComponent(recordId)}&edit=1`;
 }
 function groupFor(deal: Deal): Group {
   if (["no_bid", "lost", "completed", "closed", "archived"].includes(deal.status))
@@ -352,7 +341,8 @@ export default function ActiveBidsPage() {
   ) {
     if (!token) return;
     const current = closeParts(deal.closes_at),
-      date = dateValue || dateDrafts[deal.id] || current.date,
+      requestedDate = dateValue || dateDrafts[deal.id] || current.date,
+      date = nextBusinessDate(requestedDate),
       time = timeValue || timeDrafts[deal.id] || current.time;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time))
       return;
@@ -735,11 +725,21 @@ export default function ActiveBidsPage() {
                               className="activeBidOfferLink"
                               href={`/employee/customer-bid?deal=${encodeURIComponent(deal.deal_number)}&from=summary`}
                             >
-                              Add offer
+                              {info.count ? "Add / edit offers" : "Add offer"}
                             </a>
                           )}
                         </td>
-                        <td title={deal.owner_name}>{repInitials(deal.owner_name)}</td>
+                        <td title={deal.owner_name}>
+                          {deal.vendor_id ? (
+                            <a
+                              className="activeBidRecordLink"
+                              href={businessRecordHref("vendors", deal.vendor_id)}
+                              title={`Edit ${deal.vendor_name} vendor record`}
+                            >
+                              {repInitials(deal.owner_name)}
+                            </a>
+                          ) : repInitials(deal.owner_name)}
+                        </td>
                         <td>{deal.vendor_name}</td>
                         <td title={deal.description}>
                           {deal.description ||
@@ -883,11 +883,17 @@ export default function ActiveBidsPage() {
                         </td>
                         <td>{info.top?.company || ""}</td>
                         <td>
-                          {info.top
-                            ? info.top.sales_owner_name
-                              ? repInitials(info.top.sales_owner_name)
-                              : "WEB"
-                            : ""}
+                          {info.top?.customer_id ? (
+                            <a
+                              className="activeBidRecordLink"
+                              href={businessRecordHref("customers", info.top.customer_id)}
+                              title={`Edit ${info.top.company} customer record`}
+                            >
+                              {info.top.sales_owner_name
+                                ? repInitials(info.top.sales_owner_name)
+                                : "WEB"}
+                            </a>
+                          ) : ""}
                         </td>
                         <td>
                           {info.top

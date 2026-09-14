@@ -19,6 +19,7 @@ import {
 } from "@/lib/rawDealSpreadsheet";
 import { buildLotNotes } from "@/lib/bidSpreadsheet";
 import { detectProductCategory } from "@/lib/productCategory";
+import { nextBusinessDate } from "@/lib/businessDays";
 import { inventoryCategory, inventoryDescription } from "@/lib/inventorySummary";
 import "./deal-builder.css";
 import "./mapping.css";
@@ -979,7 +980,7 @@ export default function DealBuilder() {
       setDealNumber(nextNumber);
       setProductCategory(category);
       setShortDescription(description);
-      setCloseDate(`${closeParts.year}-${closeParts.month}-${closeParts.day}`);
+      setCloseDate(nextBusinessDate(`${closeParts.year}-${closeParts.month}-${closeParts.day}`));
       setCloseTime("13:00");
       setActiveStep(5);
     } catch (reason) {
@@ -1034,12 +1035,14 @@ export default function DealBuilder() {
         return{line:index+1,quantity,values,sources:[{row:index+1,quantity}]};
       });
       if(!rows.length)throw new Error("Enter at least one item row before continuing.");
-      const now=new Date().toISOString(),typedId=crypto.randomUUID(),category=productCategory,recordResponse=await pddAuthFetch("/rest/v1/pdd_deal_uploads",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,Prefer:"return=representation"},body:JSON.stringify({uploaded_by:user.id,employee_email:dealOwnerEmail,vendor_id:vendorId,original_name:"Typed Deal Entry",storage_path:`${user.id}/typed-deal/${typedId}`,content_type:"text/plain",size_bytes:1,source_row_count:rows.length,source_headers:manualHeaders,header_row:1,status:"quantified",column_mapping:{version:1,columns:choicesFor(manualHeaders),dealDirection,productCategory:category,sourceMode:"typed",awardMode},quantified_lines:rows,quantified_line_count:rows.length,mapping_reviewed_at:now,mapping_reviewed_by:user.id,updated_at:now})});
-      if(!recordResponse.ok)throw new Error("The manually entered deal could not be saved.");
+      const now=new Date().toISOString(),typedId=crypto.randomUUID(),category=productCategory,storagePath=`${user.id}/typed-deal/${typedId}.json`,sourceSnapshot=new Blob([JSON.stringify({headers:manualHeaders,rows})],{type:"application/octet-stream"}),objectUrl=`${pddSupabaseUrl}/storage/v1/object/pdd-deal-uploads/${encodePath(storagePath)}`,objectResponse=await fetch(objectUrl,{method:"POST",headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${session.access_token}`,"Content-Type":"application/octet-stream","x-upsert":"false"},body:sourceSnapshot});
+      if(!objectResponse.ok){const detail=await objectResponse.json().catch(()=>null) as {message?:string}|null;throw new Error(detail?.message||"The manually entered deal source could not be saved.")}
+      const recordResponse=await pddAuthFetch("/rest/v1/pdd_deal_uploads",{method:"POST",headers:{Authorization:`Bearer ${session.access_token}`,Prefer:"return=representation"},body:JSON.stringify({uploaded_by:user.id,employee_email:dealOwnerEmail.toLowerCase(),vendor_id:vendorId,original_name:"Typed Deal Entry",storage_path:storagePath,content_type:"application/octet-stream",size_bytes:sourceSnapshot.size,source_row_count:rows.length,source_headers:manualHeaders,header_row:1,status:"quantified",column_mapping:{version:1,columns:choicesFor(manualHeaders),dealDirection,productCategory:category,sourceMode:"typed",awardMode},quantified_lines:rows,quantified_line_count:rows.length,mapping_reviewed_at:now,mapping_reviewed_by:user.id,updated_at:now})});
+      if(!recordResponse.ok){await fetch(objectUrl,{method:"DELETE",headers:{apikey:pddSupabaseKey,Authorization:`Bearer ${session.access_token}`}});const detail=await recordResponse.json().catch(()=>null) as {message?:string;details?:string}|null;throw new Error(detail?.message||detail?.details||"The manually entered deal could not be saved.")}
       const record=(await recordResponse.json() as SavedUpload[])[0];if(!record)throw new Error("The manually entered deal could not be opened.");
       const parts=pacificDateParts(new Date(record.created_at)),prefix=`${dealDirection==="buying"?"WTB":"B"}${parts.month}${parts.day}${parts.year.slice(-2)}-`,numbersResponse=await pddAuthFetch(`/rest/v1/pdd_deal_uploads?select=deal_number&deal_number=like.${encodeURIComponent(prefix+"*")}`,{headers:{Authorization:`Bearer ${session.access_token}`}});if(!numbersResponse.ok)throw new Error("The next deal number could not be assigned.");
       const existing=await numbersResponse.json() as {deal_number:string|null}[],sequence=Math.max(0,...existing.map(item=>Number(item.deal_number?.slice(-2))||0))+1,nextNumber=`${prefix}${String(sequence).padStart(2,"0")}`,close=new Date();close.setDate(close.getDate()+3);const closeParts=pacificDateParts(close);
-      setFile(null);setPreview(null);setSaved(record);setQuantified(rows);setMapping(choicesFor(manualHeaders));setMappingSaved(true);setQuantifiedSaved(true);setReviewSaved(true);setDetailsSaved(false);setPublished(false);setDealNumber(nextNumber);setProductCategory(category);setShortDescription(suggestedDescription("typed deal entry",rows));setCloseDate(`${closeParts.year}-${closeParts.month}-${closeParts.day}`);setCloseTime("13:00");setActiveStep(5);
+      setFile(null);setPreview(null);setSaved(record);setQuantified(rows);setMapping(choicesFor(manualHeaders));setMappingSaved(true);setQuantifiedSaved(true);setReviewSaved(true);setDetailsSaved(false);setPublished(false);setDealNumber(nextNumber);setProductCategory(category);setShortDescription(suggestedDescription("typed deal entry",rows));setCloseDate(nextBusinessDate(`${closeParts.year}-${closeParts.month}-${closeParts.day}`));setCloseTime("13:00");setActiveStep(5);
     }catch(reason){setError(reason instanceof Error?reason.message:"The manually entered deal could not be prepared.")}finally{setUploading(false)}
   }
   async function confirmSheetSelection() {
@@ -1622,7 +1625,7 @@ export default function DealBuilder() {
         const suggested = new Date();
         suggested.setDate(suggested.getDate() + 3);
         const parts = pacificDateParts(suggested);
-        setCloseDate(`${parts.year}-${parts.month}-${parts.day}`);
+        setCloseDate(nextBusinessDate(`${parts.year}-${parts.month}-${parts.day}`));
       }
       setActiveStep(5);
     } catch (reason) {
@@ -1646,6 +1649,8 @@ export default function DealBuilder() {
       return;
     setError("");
     setSavingDetails(true);
+    const businessCloseDate=nextBusinessDate(closeDate);
+    if(businessCloseDate!==closeDate)setCloseDate(businessCloseDate);
     const completedAt = new Date().toISOString();
     const typedSource = saved.column_mapping?.sourceMode === "typed";
     const detectedCategory = suggestedCategory(shortDescription, quantified);
@@ -1656,12 +1661,12 @@ export default function DealBuilder() {
       : shortDescription.trim();
     const filename = typedSource
       ? `${dealNumber}-${slugDescription(resolvedCategory)}-${slugDescription(resolvedDescription)}`
-      : `${dealNumber}-Closes-${dateCode(closeDate)}-${formatCloseTime(closeTime)}-${totalUnits}PCS-${slugDescription(shortDescription)}.xlsx`;
+      : `${dealNumber}-Closes-${dateCode(businessCloseDate)}-${formatCloseTime(closeTime)}-${totalUnits}PCS-${slugDescription(shortDescription)}.xlsx`;
     const displayDate = new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
-    }).format(new Date(`${closeDate}T12:00:00`));
+    }).format(new Date(`${businessCloseDate}T12:00:00`));
     const displayName = `${dealNumber} — ${totalUnits.toLocaleString()} pcs ${resolvedDescription} — Closes ${displayDate} at ${readableCloseTime(closeTime)} PT`;
     try {
       const response = await pddAuthFetch(
@@ -1682,7 +1687,7 @@ export default function DealBuilder() {
               awardMode:
                 saved.column_mapping?.awardMode || awardMode || "single",
             },
-            bid_close_date: closeDate,
+            bid_close_date: businessCloseDate,
             bid_close_time: closeTime,
             bid_timezone: "America/Los_Angeles",
             display_name: displayName,
@@ -1712,7 +1717,7 @@ export default function DealBuilder() {
           ...saved,
           deal_number: dealNumber,
           short_description: resolvedDescription,
-          bid_close_date: closeDate,
+          bid_close_date: businessCloseDate,
           bid_close_time: closeTime,
           bid_timezone: "America/Los_Angeles",
           display_name: displayName,
@@ -3279,7 +3284,7 @@ export default function DealBuilder() {
                         value={closeDate}
                         disabled={!canEdit}
                         onChange={(event) => {
-                          setCloseDate(event.target.value);
+                          setCloseDate(nextBusinessDate(event.target.value));
                           setDetailsSaved(false);
                         }}
                       />

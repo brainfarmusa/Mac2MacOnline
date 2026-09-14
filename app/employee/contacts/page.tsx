@@ -102,6 +102,13 @@ const date = (value: string) =>
         year: "numeric",
       }).format(new Date(value))
     : "—";
+const revealRecord = (key: string) => {
+  window.requestAnimationFrame(() =>
+    window.requestAnimationFrame(() =>
+      document.getElementById(key)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    ),
+  );
+};
 
 export default function ContactsDirectory() {
   const [session, setSession] = useState<PddSession | null>(null),
@@ -124,6 +131,40 @@ export default function ContactsDirectory() {
     if (params.get("type") === "customers") setScope("customers");
     if (params.get("new") === "1") setCreating(true);
   }, []);
+  useEffect(() => {
+    if (loading) return;
+    const params = new URLSearchParams(window.location.search),
+      record = (params.get("record") || "").trim(),
+      company = (params.get("company") || "").trim().toLowerCase();
+    if ((!record && !company) || params.get("edit") !== "1") return;
+    if (scope === "vendors") {
+      const vendor = record
+        ? vendors.find((item) => item.id === record)
+        : vendors.find((item) => item.company_name.trim().toLowerCase() === company);
+      if (!vendor) {
+        setQuery(params.get("company") || "");
+        setMessage("The matching vendor record could not be opened automatically.");
+        return;
+      }
+      setQuery(vendor.company_name);
+      setOpen(`v-${vendor.id}`);
+      editVendor(vendor);
+      revealRecord(`v-${vendor.id}`);
+      return;
+    }
+    const customer = record
+      ? customers.find((item) => item.id === record)
+      : customers.find((item) => item.company.trim().toLowerCase() === company);
+    if (!customer) {
+      setQuery(params.get("company") || "");
+      setMessage("The matching customer record could not be opened automatically.");
+      return;
+    }
+    setQuery(customer.company || customer.email);
+    setOpen(`c-${customer.id}`);
+    editCustomer(customer);
+    revealRecord(`c-${customer.id}`);
+  }, [loading, scope, vendors, customers]);
   useEffect(() => {
     void (async () => {
       const active = await currentPddSession();
@@ -780,7 +821,7 @@ export default function ContactsDirectory() {
             ? visibleVendors.map((v) => {
                 const key = `v-${v.id}`;
                 return (
-                  <article key={v.id} className={open === key ? "open" : ""}>
+                  <article id={key} key={v.id} className={open === key ? "open" : ""}>
                     <button
                       className="contactDirectorySummary"
                       onClick={() => {
@@ -887,7 +928,7 @@ export default function ContactsDirectory() {
             : visibleCustomers.map((c) => {
                 const key = `c-${c.id}`;
                 return (
-                  <article key={c.id} className={open === key ? "open" : ""}>
+                  <article id={key} key={c.id} className={open === key ? "open" : ""}>
                     <button
                       className="contactDirectorySummary"
                       onClick={() => {

@@ -4,6 +4,7 @@ import {Shell} from "@/components/SiteShell";
 import {buildLotNotes} from "@/lib/bidSpreadsheet";
 import {detectProductCategory} from "@/lib/productCategory";
 import DealViewerPresence from "@/components/DealViewerPresence";
+import SpreadsheetDownloadLink from "@/components/SpreadsheetDownloadLink";
 import "./pdd.css";
 
 type PublicLine={line?:number;quantity:number;values:Record<string,string>;award_mode?:"single"|"multiple"};
@@ -18,7 +19,7 @@ function dealTitle(deal:Deal){const category=productCategory(deal);const saved=d
 function DealSection({title,subtitle,deals,emptyText,tone}:{title:string;subtitle:string;deals:Deal[];emptyText:string;tone:"wtb"|"wts"}){
  return <section className={`pddDealSection ${tone}`}>
   <header className="pddDealSectionHeader"><div><span>{tone.toUpperCase()}</span><h2>{title}</h2><p>{subtitle}</p></div><strong>{deals.length} active {deals.length===1?"deal":"deals"}</strong></header>
-  {deals.length?<div className="pddDealTable"><div className="pddDealHead"><span>Type / category</span><span>Deal</span><span>Inventory</span><span>Qty</span><span>Closing</span><span>Lot notes</span><span>Actions</span></div>{deals.map(deal=><article key={deal.id}><div className="pddDealType"><b className={deal.direction}>{deal.direction==="selling"?"For Sale":"Want to Buy"}</b><span>{productCategory(deal)}</span></div><a className="pddDealNumber" href={detailHref(deal)}>{deal.deal_number}</a><div className="pddDealInventory"><h2>{dealTitle(deal)}</h2></div><strong className="pddDealQty">{deal.quantity.toLocaleString()}</strong><time>{formatClose(deal.closes_at)}</time><p className="pddLotNotes">{lotNotes(deal)}</p><div className="pddDealActions"><a href={detailHref(deal)}>{deal.direction==="buying"?"Respond to WTB →":"View / Bid →"}</a>{deal.direction==="selling"&&<a href={spreadsheetHref(deal)}>Download XLSX ↓</a>}</div></article>)}</div>:<div className="pddSectionEmpty"><p>{emptyText}</p></div>}
+  {deals.length?<div className="pddDealTable"><div className="pddDealHead"><span>Type / category</span><span>Deal</span><span>Inventory</span><span>Qty</span><span>Closing</span><span>Lot notes</span><span>Actions</span></div>{deals.map(deal=><article key={deal.id}><div className="pddDealType"><b className={deal.direction}>{deal.direction==="selling"?"For Sale":"Want to Buy"}</b><span>{productCategory(deal)}</span></div><a className="pddDealNumber" href={detailHref(deal)}>{deal.deal_number}</a><div className="pddDealInventory"><h2>{dealTitle(deal)}</h2></div><strong className="pddDealQty">{deal.quantity.toLocaleString()}</strong><time>{formatClose(deal.closes_at)}</time><p className="pddLotNotes">{lotNotes(deal)}</p><div className="pddDealActions"><a href={detailHref(deal)}>{deal.direction==="buying"?"Respond to WTB →":"View / Bid →"}</a>{deal.direction==="selling"&&<SpreadsheetDownloadLink href={spreadsheetHref(deal)}>Download XLSX ↓</SpreadsheetDownloadLink>}</div></article>)}</div>:<div className="pddSectionEmpty"><p>{emptyText}</p></div>}
  </section>
 }
 

@@ -20,6 +20,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{dealNumber:
   const storedPhoto=photo?await env.BUCKET.get(photo.object_key):null;
   const picture=storedPhoto&&photo?{bytes:new Uint8Array(await storedPhoto.arrayBuffer()),contentType:photo.content_type}:undefined;
   const {bytes,filename}=buildBidSpreadsheet(record.deal_number,lines.length,[...headers.map(header=>({header,value:(index:number)=>lines[index]?.values?.[header]||""})),{header:"Qty",value:(index:number)=>lines[index]?.quantity||0}],dealSpreadsheetFilename(record),{awardMode:lines.some(line=>line.award_mode==="multiple")?"multiple":"single",picture});
-  return new Response(bytes,{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":`attachment; filename="${filename.replace(/["\\\r\n]/g,"-")}"`,"Cache-Control":"public, max-age=300"}});
+  const safeFilename=filename.replace(/["\\\r\n]/g,"-");
+  return new Response(bytes,{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":`attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(safeFilename)}`,"Content-Length":String(bytes.byteLength),"Cache-Control":"public, max-age=300","X-Content-Type-Options":"nosniff"}});
  }catch{return Response.json({error:"The deal spreadsheet could not be created."},{status:500})}
 }

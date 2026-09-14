@@ -11,6 +11,7 @@ import {
   type PddSession,
 } from "../../../lib/pdd-auth";
 import { createWebsiteBrandedOrderPdfBlob } from "../../../lib/orderPdf";
+import { createOrderSpreadsheetBlob } from "../../../lib/orderSpreadsheet";
 import "./purchase-order.css";
 
 type Profile = { email: string; display_name: string };
@@ -1189,9 +1190,9 @@ export default function PurchaseOrderGenerator({
         throw new Error(
           `This older deal does not have a vendor attached. Add its vendor before creating ${isVendorBid ? "an official bid" : "a purchase order"}.`,
         );
-      if (!upload.original_name.toLowerCase().endsWith(".xlsx"))
+      if (isVendorBid && !upload.original_name.toLowerCase().endsWith(".xlsx"))
         throw new Error(
-          `${isVendorBid ? "Official vendor bids" : "Purchase orders"} currently require the original upload to be an .xlsx workbook.`,
+          "Official vendor bids currently require the original upload to be an .xlsx workbook.",
         );
       const pricingBid =
         isVendorBid && bidData.bid.line_count === 0 && pricingMode === "total"
@@ -1229,6 +1230,16 @@ export default function PurchaseOrderGenerator({
           internal_bid_number: bidData.bid.internal_bid_number,
           source_upload_id: upload.id,
           vendor_id: upload.vendor_id,
+          vendor_company: upload.vendor.company_name,
+          vendor_contact: upload.vendor.contact_name,
+          vendor_email: upload.vendor.email,
+          vendor_phone: upload.vendor.phone,
+          vendor_address1: upload.vendor.address1,
+          vendor_address2: upload.vendor.address2,
+          vendor_city: upload.vendor.city,
+          vendor_region: upload.vendor.region,
+          vendor_postal_code: upload.vendor.postal_code,
+          vendor_country: upload.vendor.country,
           margin_percent: pricing.margin,
           customer_total: Number(bidData.bid.total_bid),
           vendor_total: pricing.target,
@@ -1336,37 +1347,76 @@ export default function PurchaseOrderGenerator({
             "The purchase order was saved, but its product lines could not be stored.",
           );
       }
-      const fileResponse = await fetch(
-        `${pddSupabaseUrl}/storage/v1/object/authenticated/pdd-deal-uploads/${upload.storage_path.split("/").map(encodeURIComponent).join("/")}`,
-        {
-          headers: {
-            apikey: pddSupabaseKey,
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        },
-      );
-      if (!fileResponse.ok)
-        throw new Error("The original spreadsheet could not be downloaded.");
-      const built = await generatePurchaseOrder(
-          await fileResponse.blob(),
-          upload,
-          bidData.bid,
-          pricing,
-          poNumber,
-        ),
-        pdf = await createPurchaseOrderPdf(
+      const pdf = await createPurchaseOrderPdf(
           upload,
           bidData.bid,
           pricing,
           poNumber,
           deals.find((deal) => deal.deal_number === bidData.bid.deal_number)
             ?.owner_name || profile.display_name,
-        ),
+        );
+      let excel: Blob, generatedTotal = pricing.target;
+      if (upload.original_name.toLowerCase().endsWith(".xlsx")) {
+        const fileResponse = await fetch(
+          `${pddSupabaseUrl}/storage/v1/object/authenticated/pdd-deal-uploads/${upload.storage_path.split("/").map(encodeURIComponent).join("/")}`,
+          {
+            headers: {
+              apikey: pddSupabaseKey,
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          },
+        );
+        if (!fileResponse.ok)
+          throw new Error("The original spreadsheet could not be downloaded.");
+        const built = await generatePurchaseOrder(
+          await fileResponse.blob(),
+          upload,
+          bidData.bid,
+          pricing,
+          poNumber,
+        );
+        excel = built.excel;
+        generatedTotal = built.grand;
+      } else {
+        const byLine = new Map(upload.quantified_lines.map((line) => [line.line, line]));
+        const address = [
+          upload.vendor.address1,
+          upload.vendor.address2,
+          [upload.vendor.city, upload.vendor.region, upload.vendor.postal_code].filter(Boolean).join(", "),
+          upload.vendor.country,
+        ].filter(Boolean).join(" · ");
+        excel = createOrderSpreadsheetBlob({
+          kind: "PURCHASE ORDER",
+          orderNumber: poNumber,
+          dealNumber: bidData.bid.deal_number,
+          partyLabel: "Vendor",
+          partyName: upload.vendor.company_name,
+          contact: upload.vendor.contact_name,
+          email: upload.vendor.email,
+          phone: upload.vendor.phone,
+          address,
+          generatedBy: profile.display_name,
+          lines: pricedLines(bidData.bid, pricing.target).map((line) => {
+            const source = byLine.get(line.lineNumber);
+            return {
+              line: line.lineNumber,
+              description: source ? productDescription(source.values, line.lineNumber) : `Deal line ${line.lineNumber}`,
+              quantity: line.quantity,
+              unitPrice: line.unitPrice,
+              total: line.lineTotal,
+            };
+          }),
+          total: pricing.target,
+          notes: [`Created from the winning customer offer using an exact PO total of ${pricing.target.toLocaleString(undefined,{style:"currency",currency:"USD"})}.`],
+          fileBase: `${poNumber}-${safe(upload.vendor.company_name)}`,
+        });
+      }
+      const
         base = `${user.id}/orders/purchase-orders/${poNumber}-${Date.now()}`,
         xlsxPath = `${base}.xlsx`,
         pdfPath = `${base}.pdf`;
       const [xlsxUpload, pdfUpload] = await Promise.all([
-        uploadPddDocument(xlsxPath, built.excel, session),
+        uploadPddDocument(xlsxPath, excel, session),
         uploadPddDocument(pdfPath, pdf, session),
       ]);
       if (!xlsxUpload.ok || !pdfUpload.ok)
@@ -1390,12 +1440,12 @@ export default function PurchaseOrderGenerator({
       setGenerated({
         poNumber,
         vendor: upload.vendor,
-        excel: built.excel,
+        excel,
         pdf,
         originalName: upload.original_name,
       });
       setMessage(
-        `${poNumber} was stored for ${upload.vendor.company_name} and credited to ${record.purchasing_owner_name}. Vendor total: ${built.grand.toLocaleString(undefined, { style: "currency", currency: "USD" })}.`,
+        `${poNumber} was stored for ${upload.vendor.company_name} and credited to ${record.purchasing_owner_name}. Vendor total: ${generatedTotal.toLocaleString(undefined, { style: "currency", currency: "USD" })}.`,
       );
     } catch (error) {
       setMessage(

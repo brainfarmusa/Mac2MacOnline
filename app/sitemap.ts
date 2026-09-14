@@ -34,7 +34,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/want-to-sell",
     "/request-quote",
     "/live-bid-board",
-    "/public-deal-desk",
   ];
   const highValue = new Set([
     "/equipment-we-buy",
@@ -51,9 +50,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ]);
   return routes.map((path) => ({
     url: `${base}${path}`,
-    lastModified: new Date("2026-09-06"),
+    lastModified: new Date("2026-09-13"),
     changeFrequency:
-      path === "/public-deal-desk" || path === "/live-bid-board"
+      path === "/live-bid-board"
         ? "daily"
         : highValue.has(path)
           ? "weekly"
@@ -61,7 +60,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority:
       path === ""
         ? 1
-        : path === "/public-deal-desk" || highValue.has(path)
+        : path === "/live-bid-board" || highValue.has(path)
           ? 0.9
           : 0.7,
   }));

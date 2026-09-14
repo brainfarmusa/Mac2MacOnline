@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       dealOwnerEmail = "";
     if (!liveDeal && supabaseReady()) {
       const acceptedStatuses = submittedOnBehalf
-        ? "open,working,pending,won"
+        ? "open,closing_soon,working,pending,won"
         : "open,closing_soon";
       const dealPath = `/rest/v1/pdd_public_deals?select=deal_number,quantity,public_lines,owner_name,owner_email&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(${acceptedStatuses})&limit=1`;
       const dealResponse = submittedOnBehalf

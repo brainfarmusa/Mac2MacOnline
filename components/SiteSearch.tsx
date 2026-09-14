@@ -23,7 +23,7 @@ const pages = [
   ["About Mac2MacOnline", "/about", "company partnership Sierra Circuit Repair"],
   ["Request a Quote", "/request-quote", "contact pricing offer"],
   ["My Account", "/account", "customer bids profile login"],
-  ["Deal Workbook", "/employee", "employee dashboard administration"],
+  ["Dashboard", "/employee", "employee dashboard administration"],
   ["Chico Stock", "/employee/chico-stock", "inventory receiving warehouse activity reports"],
   ["Deal Dashboard", "/employee/active-bids", "deal dashboard summary"],
   ["Search All Deals", "/employee/deal-search", "deal history archived lost completed"],

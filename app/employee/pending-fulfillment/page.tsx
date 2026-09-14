@@ -150,7 +150,7 @@ export default function PendingFulfillment(){
   }
 
   return <main className="pendingFulfillmentPage">
-    <header><div><p className="eyebrow">SALES</p><h1>{view==="pending"?"Pending Fulfillment":"Fulfilled Deals"}</h1><p>{view==="pending"?"Download both order documents and mark the deal fulfilled when the transaction is complete.":"Review fulfilled deals and download their purchase orders and sales orders."}</p></div><nav className="summaryReturnNav"><a className="button secondary" href="/employee/active-bids">← Back to Summary</a><a className="button secondary" href="/employee">Deal Workbook</a></nav></header>
+    <header><div><p className="eyebrow">SALES</p><h1>{view==="pending"?"Pending Fulfillment":"Fulfilled Deals"}</h1><p>{view==="pending"?"Download both order documents and mark the deal fulfilled when the transaction is complete.":"Review fulfilled deals and download their purchase orders and sales orders."}</p></div><nav className="summaryReturnNav"><a className="button secondary" href="/employee/active-bids">← Back to Summary</a><a className="button secondary" href="/employee">Dashboard</a></nav></header>
     <nav className="openOrderTabs" aria-label="Fulfillment status"><a className={view==="pending"?"active":""} href="/employee/pending-fulfillment">Pending Fulfillment</a><a className={view==="fulfilled"?"active":""} href="/employee/pending-fulfillment?view=fulfilled">Fulfilled Deals</a></nav>
     {message&&<p className="openOrderMessage">{message}</p>}
     <section className="pendingDealList">

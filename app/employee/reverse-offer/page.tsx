@@ -1473,7 +1473,7 @@ export default function PurchaseOrderGenerator({
         </div>
         <nav className="summaryReturnNav">
           <a className="button secondary" href="/employee/active-bids">← Back to Summary</a>
-          <a className="button secondary" href="/employee">Deal Workbook</a>
+          <a className="button secondary" href="/employee">Dashboard</a>
         </nav>
       </header>
       <section className="reverseOfferCard">

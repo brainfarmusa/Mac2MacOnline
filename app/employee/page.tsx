@@ -64,7 +64,7 @@ export default function EmployeeDashboard() {
       <main className="employeeDashboard">
         <header>
           <div>
-            <p className="eyebrow">M2M DEAL WORKBOOK</p>
+            <p className="eyebrow">M2M DASHBOARD</p>
             <h1>Welcome, {profile?.display_name}</h1>
             <p>
               {profile?.email} ·{" "}

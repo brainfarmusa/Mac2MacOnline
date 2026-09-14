@@ -137,7 +137,7 @@ export default function BrainFarmSystemBuilder() {
           <h1>{tierNames[tier]}</h1>
           <p>{tier === "entry-level" ? "Choose either entry-level system and configure its line items, costs and customer pricing." : "Configure components, costs and customer pricing for this system."}</p>
         </div>
-        <a href="/employee">← Deal Workbook</a>
+        <a href="/employee">← Dashboard</a>
       </header>
       <div className="systemBuildCards">
       {buildLines.map((lines, buildIndex) => {

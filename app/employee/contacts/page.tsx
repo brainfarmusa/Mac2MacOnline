@@ -724,14 +724,14 @@ export default function ContactsDirectory() {
     <main className="contactDirectoryPage">
       <header>
         <div>
-          <p className="eyebrow">DEAL WORKBOOK</p>
+          <p className="eyebrow">DASHBOARD</p>
           <h1>Vendors &amp; Customers</h1>
           <p>
             Look up and update complete company, contact and address information
             in one place.
           </p>
         </div>
-        <a href="/employee">← Deal Workbook</a>
+        <a href="/employee">← Dashboard</a>
       </header>
       <section className="contactDirectoryStats">
         <article>

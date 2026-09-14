@@ -297,7 +297,7 @@ export function IntegrationDealsPage({
       <main className="employeeDashboard integrationDealsPage">
         <header>
           <div>
-            <p className="eyebrow">M2M DEAL WORKBOOK · INTEGRATIONS</p>
+            <p className="eyebrow">M2M DASHBOARD · INTEGRATIONS</p>
             <h1>{channel} active deals</h1>
             <p>
               A focused summary of active inventory available for {channel}{" "}
@@ -305,7 +305,7 @@ export function IntegrationDealsPage({
             </p>
           </div>
           <a className="button secondary" href="/employee">
-            Back to workbook
+            Back to Dashboard
           </a>
         </header>
 

@@ -55,7 +55,7 @@ function employeeGuideFallback(message:string,guide:string){
   const sections=guide.split(/\n\s*\n/).filter(Boolean);
   const ranked=sections.map(section=>({section,score:[...wanted].reduce((sum,term)=>sum+(section.toLowerCase().includes(term)?1:0),0)})).sort((a,b)=>b.score-a.score);
   const selected=ranked[0]?.score?ranked[0].section:"";
-  return selected?`I could not reach the conversational service, but the private employee guide says:\n\n${selected}`:"Lorraine could not reach the conversational service. Please use the Deal Workbook menu for this procedure and try again shortly.";
+  return selected?`I could not reach the conversational service, but the private employee guide says:\n\n${selected}`:"Lorraine could not reach the conversational service. Please use the Dashboard menu for this procedure and try again shortly.";
 }
 
 async function answerLorraine(request: Request, env: Env): Promise<Response> {
@@ -82,7 +82,7 @@ async function answerLorraine(request: Request, env: Env): Promise<Response> {
   const instructions=`${LORRAINE_SYSTEM_PROMPT}
 
 ACCESS MODE: ${employee?`Authenticated ${employee.role}`:"Public"}.
-For authenticated employees, use the private employee operations guide below to explain the Deal Workbook, deals, bids, spreadsheets, awards, IMEI/serial results, R2 processing, contacts, orders, finalization, and the relationship between the Mac2MacOnline and BrainFarm sites. The guide contains procedures only. No live deal, customer, vendor, order, bid, IMEI, employee, or financial records are supplied to you. Never claim to know a current record or value; direct the employee to the relevant Deal Workbook screen. Remain read-only and never claim that you changed or submitted anything.
+For authenticated employees, use the private employee operations guide below to explain the Dashboard, deals, bids, spreadsheets, awards, IMEI/serial results, R2 processing, contacts, orders, finalization, and the relationship between the Mac2MacOnline and BrainFarm sites. The guide contains procedures only. No live deal, customer, vendor, order, bid, IMEI, employee, or financial records are supplied to you. Never claim to know a current record or value; direct the employee to the relevant Dashboard screen. Remain read-only and never claim that you changed or submitted anything.
 For public or customer users, never reveal, summarize, quote, or rely on the private employee guide. Answer only from public Mac2MacOnline information.
 
 PRIVATE EMPLOYEE OPERATIONS GUIDE:

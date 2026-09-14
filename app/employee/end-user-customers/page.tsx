@@ -633,7 +633,7 @@ export default function EndUserCustomers() {
           </p>
         </div>
         <nav>
-          <a href="/employee">← Deal Workbook</a>
+          <a href="/employee">← Dashboard</a>
           <a href="/employee/end-user-customers">End User Prospects</a>
           <a href="/employee/end-user-customers?type=broker">Broker Prospects</a>
           <a href="/employee/end-user-customers?type=international">International Prospects</a>

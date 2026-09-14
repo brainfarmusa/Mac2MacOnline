@@ -533,7 +533,7 @@ export default function ActiveBidsPage() {
           </p>
         </div>
         <nav>
-          <a href="/employee">Deal Workbook</a>
+          <a href="/employee">Dashboard</a>
           <a href="/employee/deals">Manage Deals &amp; Awards</a>
         </nav>
       </header>

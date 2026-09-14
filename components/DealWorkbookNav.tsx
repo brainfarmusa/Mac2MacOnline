@@ -17,8 +17,8 @@ export function DealWorkbookNav(){
     if(response.ok){const profiles=await response.json() as {role:string}[];if(profiles.length){setVisible(true);setIsAdmin(profiles[0]?.role==="administrator")}}
   })()},[]);
   if(!visible)return null;
-  return <nav className="dealWorkbookNav" aria-label="Deal Workbook">
-    <a className="workbookHome" href="/employee">Deal Workbook</a>
+  return <nav className="dealWorkbookNav" aria-label="Dashboard">
+    <a className="workbookHome" href="/employee">Dashboard</a>
     <a className="workbookHome" href="/employee/active-bids">Deal Dashboard</a>
     <details><summary>Deals</summary><div>
       <a href="/employee/box-awards">Box Awards</a>

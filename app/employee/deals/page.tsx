@@ -406,7 +406,7 @@ export default function DealManagement() {
     <main className="dealManagePage">
       <header>
         <div>
-          <p className="eyebrow">DEAL WORKBOOK</p>
+          <p className="eyebrow">DASHBOARD</p>
           <h1>Deal management</h1>
           <p>
             Every approved employee can review every deal, share comments,
@@ -414,7 +414,7 @@ export default function DealManagement() {
           </p>
         </div>
         <nav>
-          <a href="/employee">← Deal Workbook</a>
+          <a href="/employee">← Dashboard</a>
           <a href="/employee/active-bids">Deal Dashboard</a>
           <a href="/public-deal-desk/deal-builder?new=1&amp;award=single">
             Create New Deal

@@ -45,7 +45,7 @@ export default function MyBids() {
           <p>Track every account bid and its current result.</p>
         </div>
         <nav>
-          <a href="/employee">Deal Workbook</a>
+          <a href="/employee">Dashboard</a>
           <a href="/live-bid-board">Browse open deals</a>
           <button
             onClick={() => {

@@ -145,7 +145,7 @@ export default function DealSearchPage() {
           <p>Find any deal and review every customer offer, regardless of status.</p>
         </div>
         <nav>
-          <a href="/employee">Deal Workbook</a>
+          <a href="/employee">Dashboard</a>
           <a href="/employee/active-bids">Deal Dashboard</a>
         </nav>
       </header>

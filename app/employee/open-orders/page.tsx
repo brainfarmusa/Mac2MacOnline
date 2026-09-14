@@ -112,7 +112,7 @@ export default function OpenOrders(){
   }
 
   return <main className="openOrdersPage">
-    <header><div><p className="eyebrow">DEAL WORKFLOW</p><h1>Open POs &amp; Sales Orders</h1><p>Review every active order and mark it completed when the transaction is finished.</p></div><a className="button secondary" href="/employee">← Deal Workbook</a></header>
+    <header><div><p className="eyebrow">DEAL WORKFLOW</p><h1>Open POs &amp; Sales Orders</h1><p>Review every active order and mark it completed when the transaction is finished.</p></div><a className="button secondary" href="/employee">← Dashboard</a></header>
     <section className="openOrderSummary"><article><strong>{counts.open}</strong><span>All open orders</span></article><article><strong>{counts.purchase}</strong><span>Open purchase orders</span></article><article><strong>{counts.sales}</strong><span>Open sales orders</span></article><article><strong>{counts.completed}</strong><span>Completed orders</span></article></section>
     <nav className="openOrderTabs" aria-label="Order status"><button className={view==="open"?"active":""} onClick={()=>setView("open")}>Open Orders ({counts.open})</button><button className={view==="completed"?"active":""} onClick={()=>setView("completed")}>Completed Orders ({counts.completed})</button></nav>
     {message&&<p className="openOrderMessage">{message}</p>}

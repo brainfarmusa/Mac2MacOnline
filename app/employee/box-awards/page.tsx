@@ -374,7 +374,7 @@ export default function BoxAwardsPage() {
           </p>
         </div>
         <a className="button secondary" href="/employee">
-          ← Deal Workbook
+          ← Dashboard
         </a>
       </header>
       <section className="boxAwardControls">

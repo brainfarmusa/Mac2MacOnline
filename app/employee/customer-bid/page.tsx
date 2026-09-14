@@ -498,7 +498,7 @@ export default function CustomerBidUpload() {
         </div>
         <nav className="summaryReturnNav">
           <a href="/employee/active-bids">← Back to Summary</a>
-          <a href="/employee">Deal Workbook</a>
+          <a href="/employee">Dashboard</a>
         </nav>
       </header>
       <section className="customerBidSteps">

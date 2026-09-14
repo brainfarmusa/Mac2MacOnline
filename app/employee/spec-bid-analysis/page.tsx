@@ -331,7 +331,7 @@ export default function Page() {
             permanent cost rules and download the priced workbook.
           </p>
         </div>
-        <a href="/employee">← Deal Workbook</a>
+        <a href="/employee">← Dashboard</a>
       </header>
       <section className="specRuleCard">
         <h2>Permanent cost rules</h2>

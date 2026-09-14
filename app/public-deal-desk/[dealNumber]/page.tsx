@@ -637,7 +637,7 @@ export default function DynamicLineItemBid() {
           <div className="lineBidHeroNav">
             <div className="summaryReturnNav">
               {fromSummary && <a href="/employee/active-bids">← Back to Summary</a>}
-              {fromSummary && <a href="/employee">Deal Workbook</a>}
+              {fromSummary && <a href="/employee">Dashboard</a>}
               {!fromSummary && <a href={isWtb ? `/public-deal-desk/${encodeURIComponent(deal.deal_number)}` : "/live-bid-board"}>
                 {isWtb ? "← Back to Wanted Products" : "← Back to Live Bid Board"}
               </a>}

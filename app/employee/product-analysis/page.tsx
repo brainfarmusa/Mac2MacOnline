@@ -68,7 +68,7 @@ export default function ProductAnalysisPage(){
 
   if(loading)return <main className="reportsPage"><p>Loading product analysis…</p></main>;
   return <main className="reportsPage">
-    <header><div><p className="eyebrow">REPORTS</p><h1>Product Analysis</h1><p>Search product history and compare purchases, sales, profit and margin.</p></div><a href="/employee">← Deal Workbook</a></header>
+    <header><div><p className="eyebrow">REPORTS</p><h1>Product Analysis</h1><p>Search product history and compare purchases, sales, profit and margin.</p></div><a href="/employee">← Dashboard</a></header>
     <section className="reportFilters productAnalysisFilters">
       <label>Product, model, part number or SKU<input autoFocus value={query} onChange={event=>setQuery(event.target.value)} placeholder="Enter a product or part number"/></label>
       <label>From<input type="date" value={from} onChange={event=>setFrom(event.target.value)}/></label>

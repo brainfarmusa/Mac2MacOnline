@@ -305,7 +305,7 @@ export default function CommissionsPage() {
     <main className="commissionsPage">
       <header>
         <div>
-          <p className="eyebrow">DEAL WORKBOOK</p>
+          <p className="eyebrow">DASHBOARD</p>
           <h1>Commissions</h1>
           <p>
             Match a purchase order to a sales order. Employee credit comes from

@@ -56,11 +56,11 @@ export default function ChicoStockPage() {
       <main className="employeeDashboard chicoStockPage">
         <header>
           <div>
-            <p className="eyebrow">M2M DEAL WORKBOOK · CHICO STOCK</p>
+            <p className="eyebrow">M2M DASHBOARD · CHICO STOCK</p>
             <h1>Chico Stock</h1>
             <p>Inventory control for equipment stored at the Chico warehouse.</p>
           </div>
-          <a className="button secondary" href="/employee">Back to workbook</a>
+          <a className="button secondary" href="/employee">Back to Dashboard</a>
         </header>
         <nav className="chicoStockNav" aria-label="Chico Stock sections">
           {(Object.keys(views) as View[]).map((key) => (

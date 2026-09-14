@@ -27,5 +27,5 @@ export default function EmployeeWorkbookLink() {
     };
   }, []);
 
-  return authorized ? <Link href="/employee">Deal Workbook</Link> : null;
+  return authorized ? <Link href="/employee">Dashboard</Link> : null;
 }

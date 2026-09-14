@@ -505,7 +505,7 @@ export default function R2ProcessingPage() {
       <main className="r2Page">
         <header>
           <div>
-            <span>DEAL WORKBOOK · R2 PROCESSING</span>
+            <span>DASHBOARD · R2 PROCESSING</span>
             <h1>In-Process R2 Deals</h1>
             <p>
               Track inbound and in-house equipment by serial number through
@@ -513,7 +513,7 @@ export default function R2ProcessingPage() {
             </p>
           </div>
           <a className="button secondary" href="/employee">
-            Back to workbook
+            Back to Dashboard
           </a>
         </header>
         <section className="r2Toolbar">
@@ -731,7 +731,7 @@ export default function R2ProcessingPage() {
                   <option value="awaiting_arrival">Awaiting arrival</option>
                   <option value="in_process">In process</option>
                   <option value="ready_for_workbook">
-                    Ready for Deal Workbook
+                    Ready for Dashboard
                   </option>
                   <option value="completed">Completed</option>
                 </select>

@@ -81,7 +81,7 @@ export default function PageViewReports() {
               days. Dates use Pacific Time.
             </p>
           </div>
-          <a href="/employee">← Deal Workbook</a>
+          <a href="/employee">← Dashboard</a>
         </header>
         <div className="reportGenerateActions">
           <button className="button secondary" type="button" onClick={() => window.print()}>

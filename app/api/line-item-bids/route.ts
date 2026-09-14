@@ -107,26 +107,34 @@ export async function POST(request: Request) {
       dealOwnerName = "",
       dealOwnerEmail = "";
     if (!liveDeal && supabaseReady()) {
-      const acceptedStatuses = submittedOnBehalf
-        ? "open,closing_soon,working,pending,won"
-        : "open,closing_soon";
-      const dealPath = `/rest/v1/pdd_public_deals?select=deal_number,quantity,public_lines,owner_name,owner_email&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(${acceptedStatuses})&limit=1`;
-      const dealResponse = submittedOnBehalf
-        ? await fetch(`${pddSupabaseUrl}${dealPath}`, {
-            headers: {
-              apikey: pddSupabaseKey,
-              Authorization: request.headers.get("authorization") || "",
-            },
-          })
-        : await supabaseRequest(dealPath);
-      const rows = dealResponse.ok
-          ? ((await dealResponse.json()) as {
+      const dealSelect = "deal_number,quantity,public_lines,owner_name,owner_email";
+      const publicDealPath = `/rest/v1/pdd_public_deals?select=${dealSelect}&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(open,closing_soon)&limit=1`;
+      let dealResponse = await supabaseRequest(publicDealPath);
+      let rows = dealResponse.ok
+        ? ((await dealResponse.json()) as {
             quantity: number;
             public_lines?: LiveLine[];
             owner_name?: string;
             owner_email?: string;
           }[])
         : [];
+      if (submittedOnBehalf && rows.length === 0) {
+        const employeeDealPath = `/rest/v1/pdd_public_deals?select=${dealSelect}&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(open,closing_soon,working,pending,won)&limit=1`;
+        dealResponse = await fetch(`${pddSupabaseUrl}${employeeDealPath}`, {
+            headers: {
+              apikey: pddSupabaseKey,
+              Authorization: request.headers.get("authorization") || "",
+            },
+          });
+        rows = dealResponse.ok
+          ? ((await dealResponse.json()) as {
+            quantity: number;
+            public_lines?: LiveLine[];
+            owner_name?: string;
+            owner_email?: string;
+          }[])
+          : [];
+      }
       liveDeal = rows.length > 0;
       dealQuantity = Number(rows[0]?.quantity || 0);
       liveLines = Array.isArray(rows[0]?.public_lines)

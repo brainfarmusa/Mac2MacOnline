@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       dealOwnerName = "",
       dealOwnerEmail = "";
     if (!liveDeal && supabaseReady()) {
-      const dealSelect = "deal_number,quantity,public_lines,owner_name,owner_email";
+      const dealSelect = "deal_number,quantity,public_lines";
       const publicDealPath = `/rest/v1/pdd_public_deals?select=${dealSelect}&deal_number=eq.${encodeURIComponent(dealNumber)}&status=in.(open,closing_soon)&limit=1`;
       let dealResponse = await supabaseRequest(publicDealPath);
       let rows = dealResponse.ok
@@ -140,8 +140,6 @@ export async function POST(request: Request) {
       liveLines = Array.isArray(rows[0]?.public_lines)
         ? rows[0].public_lines
         : [];
-      dealOwnerName = clean(rows[0]?.owner_name, 160);
-      dealOwnerEmail = clean(rows[0]?.owner_email, 200);
     }
     if (!liveDeal)
       return Response.json(

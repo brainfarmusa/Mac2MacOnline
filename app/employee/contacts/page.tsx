@@ -4,8 +4,6 @@ import {
   clearPddSession,
   currentPddSession,
   pddAuthFetch,
-  pddSupabaseKey,
-  pddSupabaseUrl,
   type PddSession,
 } from "../../../lib/pdd-auth";
 import ContactTemplateFields from "../../../components/ContactTemplateFields";
@@ -180,9 +178,10 @@ export default function ContactsDirectory() {
           { headers },
         ),
         fetch("/api/admin/contacts", { headers }),
-        fetch(`${pddSupabaseUrl}/functions/v1/admin-pdd-employees`, {
-          headers: { ...headers, apikey: pddSupabaseKey, "Content-Type": "application/json" },
-        }),
+        pddAuthFetch(
+          "/rest/v1/pdd_employee_access?select=email,display_name,active&active=eq.true&order=display_name.asc",
+          { headers },
+        ),
       ]);
       if (vendorResponse.status === 401 || customerResponse.status === 401) {
         clearPddSession();
@@ -202,9 +201,9 @@ export default function ContactsDirectory() {
       setCustomers(customerData.customers || []);
       setIsAdministrator(customerData.currentUserRole === "administrator");
       if (employeeResponse.ok) {
-        const data = (await employeeResponse.json()) as { employees?: Employee[] };
+        const data = (await employeeResponse.json()) as Employee[];
         setEmployees(
-          (data.employees || [])
+          data
             .filter((item) => item.active !== false)
             .sort((a, b) => a.display_name.localeCompare(b.display_name)),
         );

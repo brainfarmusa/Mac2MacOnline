@@ -25,7 +25,7 @@ const pages = [
   ["My Account", "/account", "customer bids profile login"],
   ["Dashboard", "/employee", "employee dashboard administration"],
   ["Chico Stock", "/employee/chico-stock", "inventory receiving warehouse activity reports"],
-  ["Deal Dashboard", "/employee/active-bids", "deal dashboard summary"],
+  ["Deal Workbook", "/employee/active-bids", "deal workbook summary"],
   ["Search All Deals", "/employee/deal-search", "deal history archived lost completed"],
   ["Manage Deals and Awards", "/employee/deals", "deal management awards"],
   ["Vendors and Customers", "/employee/contacts", "contacts vendors customers spreadsheet"],

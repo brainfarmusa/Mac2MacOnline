@@ -415,7 +415,7 @@ export default function DealManagement() {
         </div>
         <nav>
           <a href="/employee">← Dashboard</a>
-          <a href="/employee/active-bids">Deal Dashboard</a>
+          <a href="/employee/active-bids">Deal Workbook</a>
           <a href="/public-deal-desk/deal-builder?new=1&amp;award=single">
             Create New Deal
           </a>

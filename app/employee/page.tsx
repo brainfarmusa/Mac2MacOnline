@@ -148,16 +148,16 @@ export default function EmployeeDashboard() {
             <p>Upload, continue and manage customer bidding opportunities.</p>
             <div className="workbookActionList">
               <a className="greenWorkflowAction" href="/employee/active-bids">
-                Deal Dashboard <b>→</b>
-              </a>
-              <a href="/employee/deal-search">
-                Search All Deals <b>→</b>
+                Deal Workbook <b>→</b>
               </a>
               <a
                 className="primaryWorkflowAction"
                 href="/public-deal-desk/deal-builder?new=1&amp;award=single"
               >
                 Create New Deal <b>→</b>
+              </a>
+              <a href="/employee/deal-search">
+                Search All Deals <b>→</b>
               </a>
               <a href="/employee/customer-bid">
                 Submit Customer Bid <b>→</b>

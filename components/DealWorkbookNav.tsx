@@ -19,7 +19,7 @@ export function DealWorkbookNav(){
   if(!visible)return null;
   return <nav className="dealWorkbookNav" aria-label="Dashboard">
     <a className="workbookHome" href="/employee">Dashboard</a>
-    <a className="workbookHome" href="/employee/active-bids">Deal Dashboard</a>
+    <a className="workbookHome" href="/employee/active-bids">Deal Workbook</a>
     <details><summary>Deals</summary><div>
       <a href="/employee/box-awards">Box Awards</a>
       <a href="/employee/deals">Manage Deals &amp; Awards</a>

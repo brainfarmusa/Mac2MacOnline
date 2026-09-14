@@ -146,7 +146,7 @@ export default function DealSearchPage() {
         </div>
         <nav>
           <a href="/employee">Dashboard</a>
-          <a href="/employee/active-bids">Deal Dashboard</a>
+          <a href="/employee/active-bids">Deal Workbook</a>
         </nav>
       </header>
 

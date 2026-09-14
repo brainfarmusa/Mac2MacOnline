@@ -14,13 +14,12 @@ export async function GET(request:Request){
   await env.DB.prepare(schema).run();await env.DB.prepare(attachmentSchema).run();
   const result=await env.DB.prepare("SELECT id,reference,site,kind,company,contact_name,email,phone,payload,status,created_at FROM onboarding_applications ORDER BY created_at DESC").all();
   const attached=await env.DB.prepare("SELECT id,application_id,filename,content_type,size_bytes,created_at FROM onboarding_attachments ORDER BY created_at ASC").all();
-  return Response.json({canEdit:employee.role==="administrator",applications:result.results.map((row:any)=>({...row,attachments:attached.results.filter((file:any)=>file.application_id===row.id)}))});
+  return Response.json({canEdit:true,applications:result.results.map((row:any)=>({...row,attachments:attached.results.filter((file:any)=>file.application_id===row.id)}))});
  }catch{return Response.json({error:"Applications could not be loaded."},{status:500})}
 }
 export async function PATCH(request:Request){
  const employee=await employeeUser(request);
  if(!employee)return Response.json({error:"Employee sign-in required."},{status:401});
- if(employee.role!=="administrator")return Response.json({error:"Administrator access required."},{status:403});
  try{
   const site=new URL(request.url).searchParams.get("site");
   if(site==="brainfarm"){

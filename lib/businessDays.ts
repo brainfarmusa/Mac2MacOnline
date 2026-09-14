@@ -1,0 +1,14 @@
+const DAY=86_400_000;
+
+function dateFromInput(value:string){const [year,month,day]=value.split("-").map(Number);return new Date(Date.UTC(year,month-1,day))}
+function inputFromDate(value:Date){return value.toISOString().slice(0,10)}
+function observed(value:Date){const day=value.getUTCDay();return new Date(value.getTime()+(day===6?-DAY:day===0?DAY:0))}
+function nthWeekday(year:number,month:number,weekday:number,nth:number){const first=new Date(Date.UTC(year,month,1));return new Date(Date.UTC(year,month,1+((7+weekday-first.getUTCDay())%7)+(nth-1)*7))}
+function lastWeekday(year:number,month:number,weekday:number){const last=new Date(Date.UTC(year,month+1,0));return new Date(Date.UTC(year,month,last.getUTCDate()-((7+last.getUTCDay()-weekday)%7)))}
+function holidays(year:number){return [observed(new Date(Date.UTC(year,0,1))),nthWeekday(year,0,1,3),nthWeekday(year,1,1,3),lastWeekday(year,4,1),observed(new Date(Date.UTC(year,5,19))),observed(new Date(Date.UTC(year,6,4))),nthWeekday(year,8,1,1),nthWeekday(year,9,1,2),observed(new Date(Date.UTC(year,10,11))),nthWeekday(year,10,4,4),observed(new Date(Date.UTC(year,11,25)))].map(inputFromDate)}
+
+export function isBusinessDate(value:string){const date=dateFromInput(value),day=date.getUTCDay();if(day===0||day===6)return false;const year=date.getUTCFullYear();return ![...holidays(year-1),...holidays(year),...holidays(year+1)].includes(value)}
+export function nextBusinessDate(value:string){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return value;let date=dateFromInput(value),result=inputFromDate(date);while(!isBusinessDate(result)){date=new Date(date.getTime()+DAY);result=inputFromDate(date)}return result}
+export function pacificDateTimeParts(value:Date){const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(value).filter(part=>part.type!=="literal").map(part=>[part.type,part.value]));return{date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}`}}
+export function pacificIso(date:string,time:string){const [year,month,day]=date.split("-").map(Number),[hour,minute]=time.split(":").map(Number),approximate=Date.UTC(year,month-1,day,hour,minute),offsetName=new Intl.DateTimeFormat("en-US",{timeZone:"America/Los_Angeles",timeZoneName:"longOffset"}).formatToParts(new Date(approximate)).find(part=>part.type==="timeZoneName")?.value||"GMT-08:00",match=offsetName.match(/GMT([+-])(\d{2}):(\d{2})/),offset=match?(match[1]==="+"?1:-1)*(Number(match[2])*60+Number(match[3])):-480;return new Date(approximate-offset*60_000).toISOString()}
+export function normalizeClosingIso(value:string){const parts=pacificDateTimeParts(new Date(value));return pacificIso(nextBusinessDate(parts.date),parts.time)}

@@ -21,6 +21,21 @@ type Deal = {
   vendor_name?: string;
 };
 
+type Bid = {
+  internal_bid_number: string;
+  deal_number: string;
+  company: string;
+  contact_name: string;
+  email?: string;
+  phone?: string;
+  line_count: number;
+  total_quantity: number;
+  total_bid: number;
+  status: string;
+  submitted_at: string;
+  entered_by_name?: string;
+};
+
 const statusLabel = (status: string) =>
   ({
     open: "Open",
@@ -34,9 +49,10 @@ const statusLabel = (status: string) =>
     completed: "Fulfilled",
     closed: "Closed",
     archived: "Archived",
+    submitted: "Pending",
   } as Record<string, string>)[status] || status.replaceAll("_", " ");
 
-const searchableText = (deal: Deal) =>
+const searchableText = (deal: Deal, bids: Bid[]) =>
   [
     deal.deal_number,
     deal.direction,
@@ -50,6 +66,7 @@ const searchableText = (deal: Deal) =>
     deal.owner_email,
     deal.vendor_name,
     JSON.stringify(deal.public_lines || []),
+    bids.map((bid) => `${bid.internal_bid_number} ${bid.company} ${bid.contact_name} ${bid.email || ""} ${bid.phone || ""} ${bid.total_bid} ${bid.status}`).join(" "),
   ]
     .filter(Boolean)
     .join(" ")
@@ -57,6 +74,7 @@ const searchableText = (deal: Deal) =>
 
 export default function DealSearchPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [bids, setBids] = useState<Bid[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -69,21 +87,27 @@ export default function DealSearchPage() {
         window.location.replace("/employee-login?return_to=/employee/deal-search");
         return;
       }
-      const response = await fetch("/api/admin/deals", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (response.status === 401) {
+      const headers = { Authorization: `Bearer ${session.access_token}` };
+      const [dealResponse, bidResponse] = await Promise.all([
+        fetch("/api/admin/deals", { headers }),
+        fetch("/api/admin/bids?all=1", { headers }),
+      ]);
+      if (dealResponse.status === 401 || bidResponse.status === 401) {
         clearPddSession();
         window.location.replace("/employee-login?return_to=/employee/deal-search");
         return;
       }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setError(data.error || "Deals could not be loaded.");
+      const [dealData, bidData] = await Promise.all([
+        dealResponse.json().catch(() => ({})),
+        bidResponse.json().catch(() => ({})),
+      ]);
+      if (!dealResponse.ok || !bidResponse.ok) {
+        setError(dealData.error || bidData.error || "Deals and customer offers could not be loaded.");
         setLoading(false);
         return;
       }
-      setDeals(data.deals || []);
+      setDeals(dealData.deals || []);
+      setBids(bidData.bids || []);
       setLoading(false);
     })();
   }, []);
@@ -92,14 +116,25 @@ export default function DealSearchPage() {
     () => [...new Set(deals.map((deal) => deal.status))].sort(),
     [deals],
   );
+  const bidsByDeal = useMemo(() => {
+    const grouped = new Map<string, Bid[]>();
+    for (const bid of bids) {
+      const current = grouped.get(bid.deal_number) || [];
+      current.push(bid);
+      grouped.set(bid.deal_number, current);
+    }
+    for (const offers of grouped.values())
+      offers.sort((a, b) => Number(b.total_bid) - Number(a.total_bid));
+    return grouped;
+  }, [bids]);
   const results = useMemo(() => {
     const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
     return deals.filter((deal) => {
       if (status !== "all" && deal.status !== status) return false;
-      const haystack = searchableText(deal);
+      const haystack = searchableText(deal, bidsByDeal.get(deal.deal_number) || []);
       return terms.every((term) => haystack.includes(term));
     });
-  }, [deals, query, status]);
+  }, [deals, query, status, bidsByDeal]);
 
   return (
     <main className="dealSearchPage">
@@ -107,7 +142,7 @@ export default function DealSearchPage() {
         <div>
           <p className="eyebrow">DEAL WORKFLOW</p>
           <h1>Search All Deals</h1>
-          <p>Find any deal, including completed, lost, closed and archived records.</p>
+          <p>Find any deal and review every customer offer, regardless of status.</p>
         </div>
         <nav>
           <a href="/employee">Deal Workbook</a>
@@ -122,7 +157,7 @@ export default function DealSearchPage() {
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Deal number, vendor, item, part number, owner…"
+            placeholder="Deal, vendor, item, part number, customer, bid number…"
           />
         </label>
         <label>
@@ -155,7 +190,7 @@ export default function DealSearchPage() {
                   <th>Category</th>
                   <th>Qty</th>
                   <th>Owner</th>
-                  <th>Closing Date</th>
+                  <th>Customer Offers</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -169,7 +204,19 @@ export default function DealSearchPage() {
                     <td>{deal.category || "—"}</td>
                     <td>{Number(deal.quantity || 0).toLocaleString()}</td>
                     <td>{deal.owner_name || "Unassigned"}</td>
-                    <td>{deal.closes_at ? new Date(deal.closes_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" }) : "—"}</td>
+                    <td>
+                      <div className="dealSearchOffers">
+                        {(bidsByDeal.get(deal.deal_number) || []).map((bid) => (
+                          <a key={bid.internal_bid_number} href={`/employee/customer-bid?deal=${encodeURIComponent(deal.deal_number)}&bid=${encodeURIComponent(bid.internal_bid_number)}`}>
+                            <span><b>{bid.company}</b> · {bid.contact_name}</span>
+                            <span>{bid.internal_bid_number} · {statusLabel(bid.status)}</span>
+                            <strong>{Number(bid.total_bid || 0).toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong>
+                            <small>{Number(bid.total_quantity || 0).toLocaleString()} units · {bid.line_count || 0} lines · {new Date(bid.submitted_at).toLocaleDateString("en-US")}</small>
+                          </a>
+                        ))}
+                        {!(bidsByDeal.get(deal.deal_number) || []).length && <span className="dealSearchNoOffers">No customer offers</span>}
+                      </div>
+                    </td>
                     <td><a className="dealSearchAction" href={`/employee/deals?search=${encodeURIComponent(deal.deal_number)}`}>Open deal</a></td>
                   </tr>
                 ))}

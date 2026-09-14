@@ -990,19 +990,30 @@ export async function readBidSpreadsheet(
     : name.endsWith(".csv")
       ? parseCsv(await file.text())
       : parseSpreadsheetXml(await file.text());
-  let headers: string[] = [];
   let lineIndex = -1,
     bidIndex = -1,
     commentsIndex = -1;
   const imported: ImportedBidRow[] = [];
+  const normalizedHeader = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
   for (const row of rows) {
-    if (row.some((cell) => cell === "Line" || cell === "LBB Line ID" || cell === "PDD Line ID")) {
-      headers = row.map((value) => value.trim());
-      lineIndex = headers.includes("Line")
-        ? headers.indexOf("Line")
-        : Math.max(headers.indexOf("LBB Line ID"), headers.indexOf("PDD Line ID"));
-      bidIndex = headers.indexOf("Unit Bid");
-      commentsIndex = headers.indexOf("Bid Comments");
+    const normalized = row.map((value) => normalizedHeader(value || ""));
+    const possibleLineIndex = normalized.findIndex((value) =>
+      ["line", "line id", "lbb line id", "pdd line id"].includes(value),
+    );
+    if (possibleLineIndex >= 0) {
+      lineIndex = possibleLineIndex;
+      bidIndex = normalized.findIndex((value) =>
+        ["unit bid", "unit price", "bid price"].includes(value),
+      );
+      commentsIndex = normalized.findIndex((value) =>
+        ["bid comments", "bid comment"].includes(value),
+      );
       continue;
     }
     if (lineIndex >= 0 && bidIndex >= 0 && row.some(Boolean))

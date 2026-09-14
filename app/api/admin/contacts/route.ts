@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { employeeUser } from "../../../../lib/employee-server";
+import importedCustomers from "../../../data/imported-customers.json";
 
 type CustomerRow = {
   user_id?: string | null;
@@ -52,6 +53,35 @@ export async function GET(request: Request) {
     "CREATE TABLE IF NOT EXISTS internal_bid_customers (bid_id TEXT PRIMARY KEY,customer_user_id TEXT,address1 TEXT NOT NULL DEFAULT '',address2 TEXT NOT NULL DEFAULT '',city TEXT NOT NULL DEFAULT '',region TEXT NOT NULL DEFAULT '',postal_code TEXT NOT NULL DEFAULT '',country TEXT NOT NULL DEFAULT '')",
   ).run();
   await env.DB.prepare(deletedCustomerSchema).run();
+  const updatedAt = new Date().toISOString();
+  await env.DB.batch(
+    importedCustomers.map((row) =>
+      env.DB.prepare(
+        "INSERT INTO imported_customers (id,email,company,contact_name,phone,address1,address2,city,region,postal_code,country,assigned_employee_name,assigned_employee_email,source,updated_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM imported_customers existing WHERE lower(trim(existing.company))=lower(trim(?)) OR (?<>'' AND lower(trim(existing.email))=lower(trim(?))) OR (?<>'' AND trim(existing.phone)=trim(?))) ON CONFLICT(id) DO NOTHING",
+      ).bind(
+        row.id,
+        row.email,
+        row.company,
+        row.contact_name,
+        row.phone,
+        row.address1,
+        row.address2,
+        row.city,
+        row.region,
+        row.postal_code,
+        row.country,
+        row.assigned_employee_name,
+        row.assigned_employee_email,
+        row.source,
+        updatedAt,
+        row.company,
+        row.email,
+        row.email,
+        row.phone,
+        row.phone,
+      ),
+    ),
+  );
   const [profiles, imports, bids, deleted] = await Promise.all([
     env.DB.prepare(
       "SELECT user_id,email,company,contact_name,phone,address1,address2,city,region,postal_code,country,updated_at FROM customer_profiles ORDER BY company,email",

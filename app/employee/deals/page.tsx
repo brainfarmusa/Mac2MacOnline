@@ -86,7 +86,11 @@ export default function DealManagement() {
     [loading, setLoading] = useState(true),
     [message, setMessage] = useState(""),
     [filter, setFilter] = useState("all"),
-    [query, setQuery] = useState(""),
+    [query, setQuery] = useState(() =>
+      typeof window === "undefined"
+        ? ""
+        : new URLSearchParams(window.location.search).get("search") || "",
+    ),
     [scope, setScope] = useState<"all" | "mine">("all"),
     [currentUserId, setCurrentUserId] = useState(""),
     [currentUserEmail, setCurrentUserEmail] = useState(""),
@@ -411,7 +415,7 @@ export default function DealManagement() {
         </div>
         <nav>
           <a href="/employee">← Deal Workbook</a>
-          <a href="/employee/active-bids">Active Bid Summary</a>
+          <a href="/employee/active-bids">Deal Dashboard</a>
           <a href="/public-deal-desk/deal-builder?new=1&amp;award=single">
             Create New Deal
           </a>

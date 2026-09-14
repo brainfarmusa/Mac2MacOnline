@@ -189,7 +189,7 @@ export default function ActiveBidsPage() {
           return;
         }
         if (!dealResponse.ok || !bidResponse.ok)
-          throw new Error("Active bid data could not be loaded.");
+          throw new Error("Deal Dashboard data could not be loaded.");
         const dealData = await dealResponse.json(),
           bidData = await bidResponse.json(),
           r2Data=r2Response.ok?await r2Response.json():{deals:[],items:[]};
@@ -211,7 +211,7 @@ export default function ActiveBidsPage() {
         setMessage(
           error instanceof Error
             ? error.message
-            : "Active bid data could not be loaded.",
+            : "Deal Dashboard data could not be loaded.",
         );
       } finally {
         setLoading(false);
@@ -518,7 +518,7 @@ export default function ActiveBidsPage() {
   if (loading)
     return (
       <main className="activeBidsPage">
-        <p>Loading active bids…</p>
+        <p>Loading Deal Dashboard…</p>
       </main>
     );
   return (
@@ -526,7 +526,7 @@ export default function ActiveBidsPage() {
       <header>
         <div>
           <p className="eyebrow">DEAL MANAGEMENT</p>
-          <h1>Active Bid Summary</h1>
+          <h1>Deal Dashboard</h1>
           <p>
             A consolidated view of every active bid, current offer and next
             deadline.
@@ -609,7 +609,7 @@ export default function ActiveBidsPage() {
       )}
       <div className="activeBidCounts">
         <span>
-          <b>{filtered.length}</b> {status === "active" ? "active bids" : "deals"}
+          <b>{filtered.length}</b> {status === "active" ? "active deals" : "deals"}
         </span>
         <span>
           <b>

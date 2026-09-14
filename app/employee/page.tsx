@@ -148,7 +148,10 @@ export default function EmployeeDashboard() {
             <p>Upload, continue and manage customer bidding opportunities.</p>
             <div className="workbookActionList">
               <a className="greenWorkflowAction" href="/employee/active-bids">
-                Active Bid Summary <b>→</b>
+                Deal Dashboard <b>→</b>
+              </a>
+              <a href="/employee/deal-search">
+                Search All Deals <b>→</b>
               </a>
               <a
                 className="primaryWorkflowAction"

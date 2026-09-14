@@ -1529,7 +1529,7 @@ export default function PurchaseOrderGenerator({
         {isVendorBid && !selectedDeal && (
           <p className="poStatus pending">
             Select the vendor and deal you want to work with. This list matches
-            the Bid Summary page and excludes Want to Buy deals.
+            the Deal Dashboard and excludes Want to Buy deals.
           </p>
         )}
         {isVendorBid && selectedDeal && sourceLoading && (

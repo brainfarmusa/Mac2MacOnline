@@ -34,6 +34,18 @@ type Bid = {
   status: string;
   submitted_at: string;
   entered_by_name?: string;
+  sales_owner_name?: string;
+};
+
+type DealComment = {
+  id: string;
+  deal_id: string;
+  deal_number: string;
+  author_initials: string;
+  author_name: string;
+  comment: string;
+  created_at: string;
+  edited_at?: string | null;
 };
 
 const statusLabel = (status: string) =>
@@ -52,7 +64,13 @@ const statusLabel = (status: string) =>
     submitted: "Pending",
   } as Record<string, string>)[status] || status.replaceAll("_", " ");
 
-const searchableText = (deal: Deal, bids: Bid[]) =>
+const customerOwnerInitials = (name?: string) => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length || String(name).toLowerCase() === "unassigned") return "WEB";
+  return `${parts[0][0] || ""}${parts.length > 1 ? parts[parts.length - 1][0] : parts[0][1] || ""}`.toUpperCase();
+};
+
+const searchableText = (deal: Deal, bids: Bid[], comments: DealComment[]) =>
   [
     deal.deal_number,
     deal.direction,
@@ -66,7 +84,8 @@ const searchableText = (deal: Deal, bids: Bid[]) =>
     deal.owner_email,
     deal.vendor_name,
     JSON.stringify(deal.public_lines || []),
-    bids.map((bid) => `${bid.internal_bid_number} ${bid.company} ${bid.contact_name} ${bid.email || ""} ${bid.phone || ""} ${bid.total_bid} ${bid.status}`).join(" "),
+    bids.map((bid) => `${bid.internal_bid_number} ${bid.company} ${bid.contact_name} ${bid.email || ""} ${bid.phone || ""} ${bid.total_bid} ${bid.status} ${bid.sales_owner_name || "WEB"} ${customerOwnerInitials(bid.sales_owner_name)}`).join(" "),
+    comments.map((item) => `${item.author_initials} ${item.author_name} ${item.comment}`).join(" "),
   ]
     .filter(Boolean)
     .join(" ")
@@ -75,6 +94,7 @@ const searchableText = (deal: Deal, bids: Bid[]) =>
 export default function DealSearchPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
+  const [comments, setComments] = useState<DealComment[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -108,6 +128,7 @@ export default function DealSearchPage() {
       }
       setDeals(dealData.deals || []);
       setBids(bidData.bids || []);
+      setComments(dealData.comments || []);
       setLoading(false);
     })();
   }, []);
@@ -127,14 +148,25 @@ export default function DealSearchPage() {
       offers.sort((a, b) => Number(b.total_bid) - Number(a.total_bid));
     return grouped;
   }, [bids]);
+  const commentsByDeal = useMemo(() => {
+    const grouped = new Map<string, DealComment[]>();
+    for (const item of comments) {
+      const key = item.deal_number || item.deal_id;
+      const current = grouped.get(key) || [];
+      current.push(item);
+      grouped.set(key, current);
+    }
+    return grouped;
+  }, [comments]);
   const results = useMemo(() => {
     const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
     return deals.filter((deal) => {
       if (status !== "all" && deal.status !== status) return false;
-      const haystack = searchableText(deal, bidsByDeal.get(deal.deal_number) || []);
+      const dealComments = commentsByDeal.get(deal.deal_number) || commentsByDeal.get(deal.id) || [];
+      const haystack = searchableText(deal, bidsByDeal.get(deal.deal_number) || [], dealComments);
       return terms.every((term) => haystack.includes(term));
     });
-  }, [deals, query, status, bidsByDeal]);
+  }, [deals, query, status, bidsByDeal, commentsByDeal]);
 
   return (
     <main className="dealSearchPage">
@@ -157,7 +189,7 @@ export default function DealSearchPage() {
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Deal, vendor, item, part number, customer, bid number…"
+            placeholder="Deal, vendor, item, customer, bid number, comment…"
           />
         </label>
         <label>
@@ -190,6 +222,7 @@ export default function DealSearchPage() {
                   <th>Category</th>
                   <th>Qty</th>
                   <th>Owner</th>
+                  <th>Comments</th>
                   <th>Customer Offers</th>
                   <th>Action</th>
                 </tr>
@@ -205,10 +238,22 @@ export default function DealSearchPage() {
                     <td>{Number(deal.quantity || 0).toLocaleString()}</td>
                     <td>{deal.owner_name || "Unassigned"}</td>
                     <td>
+                      <div className="dealSearchComments">
+                        {(commentsByDeal.get(deal.deal_number) || commentsByDeal.get(deal.id) || []).map((item) => (
+                          <div key={item.id}>
+                            <b title={item.author_name}>{item.author_initials}</b>
+                            <span>{item.comment}</span>
+                            <small>{new Date(item.created_at).toLocaleDateString("en-US")}{item.edited_at ? " · edited" : ""}</small>
+                          </div>
+                        ))}
+                        {!(commentsByDeal.get(deal.deal_number) || commentsByDeal.get(deal.id) || []).length && <span className="dealSearchNoComments">No comments</span>}
+                      </div>
+                    </td>
+                    <td>
                       <div className="dealSearchOffers">
                         {(bidsByDeal.get(deal.deal_number) || []).map((bid) => (
                           <a key={bid.internal_bid_number} href={`/employee/customer-bid?deal=${encodeURIComponent(deal.deal_number)}&bid=${encodeURIComponent(bid.internal_bid_number)}`}>
-                            <span><b>{bid.company}</b> · {bid.contact_name}</span>
+                            <span><b>{bid.company}</b> · {bid.contact_name} · Rep <b title={bid.sales_owner_name || "Web customer"}>{customerOwnerInitials(bid.sales_owner_name)}</b></span>
                             <span>{bid.internal_bid_number} · {statusLabel(bid.status)}</span>
                             <strong>{Number(bid.total_bid || 0).toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong>
                             <small>{Number(bid.total_quantity || 0).toLocaleString()} units · {bid.line_count || 0} lines · {new Date(bid.submitted_at).toLocaleDateString("en-US")}</small>
@@ -221,7 +266,7 @@ export default function DealSearchPage() {
                   </tr>
                 ))}
                 {!results.length && (
-                  <tr><td className="dealSearchEmpty" colSpan={9}>No deals match this search.</td></tr>
+                  <tr><td className="dealSearchEmpty" colSpan={10}>No deals match this search.</td></tr>
                 )}
               </tbody>
             </table>

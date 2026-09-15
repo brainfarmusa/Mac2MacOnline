@@ -48,7 +48,7 @@ type Deal = {
   public_lines: PublicLine[];
   spreadsheet_filename: string;
 };
-type BidEntry = { unitBid: string; comments: string };
+type BidEntry = { quantity: string; unitBid: string; comments: string };
 type ExistingBid = {
   internal_bid_number: string;
   company: string;
@@ -70,7 +70,7 @@ type EditableBid = ExistingBid & {
   region: string;
   postal_code: string;
   country: string;
-  line_items: { lineNumber: number; unitBid: number; comments?: string }[];
+  line_items: { lineNumber: number; quantity: number; unitBid: number; comments?: string }[];
 };
 type ContactDraft = {
   company: string;
@@ -273,7 +273,7 @@ export default function CustomerBidUpload() {
           const byLine = new Map((bid.line_items || []).map(line => [Number(line.lineNumber), line]));
           setEntries(Object.fromEntries((data.deal.public_lines || []).map((line:PublicLine,index:number) => {
             const saved = byLine.get(Number(line.line));
-            return [index, {unitBid:saved ? String(saved.unitBid) : "",comments:saved?.comments || ""}];
+            return [index, {quantity:String(saved?.quantity ?? line.quantity),unitBid:saved ? String(saved.unitBid) : "",comments:saved?.comments || ""}];
           })));
         }
       })
@@ -335,10 +335,10 @@ export default function CustomerBidUpload() {
     [deal, multipleAwards],
   );
   const total = selected.reduce(
-      (sum, item) => sum + item.line.quantity * Number(item.entry.unitBid),
+      (sum, item) => sum + Number(item.entry.quantity || item.line.quantity) * Number(item.entry.unitBid),
       0,
     ),
-    totalQty = selected.reduce((sum, item) => sum + item.line.quantity, 0);
+    totalQty = selected.reduce((sum, item) => sum + Number(item.entry.quantity || item.line.quantity), 0);
   const takeAll = offerType === "take_all";
   const offerTotal = takeAll ? Number(takeAllAmount) || 0 : total;
   const offerQuantity = takeAll ? deal?.quantity || 0 : totalQty;
@@ -376,7 +376,7 @@ export default function CustomerBidUpload() {
           continue;
         }
         if (Number(item.unitBid) > 0) {
-          next[index] = { unitBid: item.unitBid, comments: item.comments };
+          next[index] = { quantity: String(deal.public_lines[index].quantity), unitBid: item.unitBid, comments: item.comments };
           priced++;
         }
       }
@@ -422,16 +422,24 @@ export default function CustomerBidUpload() {
       issues: Object.entries(line.values)
         .map(([key, value]) => `${key}: ${value}`)
         .join(" · "),
-      quantity: line.quantity,
+      quantity: Number(entry.quantity || line.quantity),
       unitBid: Number(entry.unitBid),
       comments: entry.comments,
     }));
     try {
+      const activeSession = await currentPddSession(true);
+      if (!activeSession) {
+        window.location.replace(
+          "/employee-login?return_to=/employee/customer-bid",
+        );
+        return;
+      }
+      setSession(activeSession);
       const response = await fetch("/api/line-item-bids", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${activeSession.access_token}`,
         },
         body: JSON.stringify({
           dealNumber: deal.deal_number,
@@ -644,7 +652,7 @@ export default function CustomerBidUpload() {
               {lotGroups.map((lot) => {
                 const lotTotal = lot.indexes.reduce((sum, index) => {
                   const entry = entries[index];
-                  return sum + deal.public_lines[index].quantity * (Number(entry?.unitBid) || 0);
+                  return sum + Number(entry?.quantity || deal.public_lines[index].quantity) * (Number(entry?.unitBid) || 0);
                 }, 0);
                 return <div className="customerBidLineTable" key={lot.boxNumber}>
                   <h3>Lot {lot.boxNumber} · {lot.quantity.toLocaleString()} items · {lotTotal > 0 ? money.format(lotTotal) : "No bid entered"}</h3>
@@ -652,11 +660,11 @@ export default function CustomerBidUpload() {
                     <thead><tr><th>Line</th><th>Configuration / Description</th><th>Qty</th><th>Unit Bid</th><th>Lot Line Total</th><th>Bid Comments</th></tr></thead>
                     <tbody>{lot.indexes.map((index) => {
                       const line = deal.public_lines[index];
-                      const entry = entries[index] || { unitBid: "", comments: "" };
+                      const entry = entries[index] || { quantity: String(line.quantity), unitBid: "", comments: "" };
                       const description = Object.entries(line.values).filter(([, value]) => String(value || "").trim()).map(([key, value]) => `${key}: ${value}`).join(" · ");
-                      const lineTotal = line.quantity * (Number(entry.unitBid) || 0);
+                      const lineTotal = Number(entry.quantity || line.quantity) * (Number(entry.unitBid) || 0);
                       return <tr key={`${line.line}-${index}`}>
-                        <td>{line.line}</td><td>{description || `Line ${line.line}`}</td><td>{line.quantity.toLocaleString()}</td>
+                        <td>{line.line}</td><td>{description || `Line ${line.line}`}</td><td>{editingBidNumber ? <input className="customerBidQtyInput" type="number" min="1" max={line.quantity} step="1" value={entry.quantity} onChange={(event) => setEntries((current) => ({ ...current, [index]: { ...entry, quantity: event.target.value } }))} aria-label={`Quantity for line ${line.line}`} /> : line.quantity.toLocaleString()}</td>
                         <td><label className="customerBidMoneyInput"><span>$</span><input type="number" min="0" step="0.01" inputMode="decimal" value={entry.unitBid} onChange={(event) => setEntries((current) => ({ ...current, [index]: { ...entry, unitBid: event.target.value } }))} aria-label={`Unit bid for line ${line.line}`} placeholder="0.00" /></label></td>
                         <td className="customerBidLineTotal">{lineTotal > 0 ? money.format(lineTotal) : "—"}</td>
                         <td><input className="customerBidLineComment" value={entry.comments} onChange={(event) => setEntries((current) => ({ ...current, [index]: { ...entry, comments: event.target.value } }))} aria-label={`Comments for line ${line.line}`} placeholder="Optional" /></td>
@@ -672,12 +680,12 @@ export default function CustomerBidUpload() {
                 <thead><tr><th>Line</th><th>Configuration / Description</th><th>Qty</th><th>Unit Bid</th><th>Total</th><th>Bid Comments</th></tr></thead>
                 <tbody>
                   {deal.public_lines.map((line, index) => {
-                    const entry = entries[index] || { unitBid: "", comments: "" };
+                    const entry = entries[index] || { quantity: String(line.quantity), unitBid: "", comments: "" };
                     const description = Object.entries(line.values).filter(([, value]) => String(value || "").trim()).map(([key, value]) => `${key}: ${value}`).join(" · ");
-                    const lineTotal = line.quantity * (Number(entry.unitBid) || 0);
+                    const lineTotal = Number(entry.quantity || line.quantity) * (Number(entry.unitBid) || 0);
                     return (
                       <tr key={`${line.line}-${index}`}>
-                        <td>{line.line}</td><td>{description || `Line ${line.line}`}</td><td>{line.quantity.toLocaleString()}</td>
+                        <td>{line.line}</td><td>{description || `Line ${line.line}`}</td><td>{editingBidNumber ? <input className="customerBidQtyInput" type="number" min="1" max={line.quantity} step="1" value={entry.quantity} onChange={(event) => setEntries((current) => ({ ...current, [index]: { ...entry, quantity: event.target.value } }))} aria-label={`Quantity for line ${line.line}`} /> : line.quantity.toLocaleString()}</td>
                         <td><label className="customerBidMoneyInput"><span>$</span><input type="number" min="0" step="0.01" inputMode="decimal" value={entry.unitBid} onChange={(event) => setEntries((current) => ({ ...current, [index]: { ...entry, unitBid: event.target.value } }))} aria-label={`Unit bid for line ${line.line}`} placeholder="0.00" /></label></td>
                         <td className="customerBidLineTotal">{lineTotal > 0 ? money.format(lineTotal) : "—"}</td>
                         <td><input className="customerBidLineComment" value={entry.comments} onChange={(event) => setEntries((current) => ({ ...current, [index]: { ...entry, comments: event.target.value } }))} aria-label={`Comments for line ${line.line}`} placeholder="Optional" /></td>

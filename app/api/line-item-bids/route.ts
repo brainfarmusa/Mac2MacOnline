@@ -220,6 +220,16 @@ export async function POST(request: Request) {
         },
         { status: 400 },
       );
+    if (offerType === "line_item") {
+      const availableByLine = new Map(
+        liveLines.map((line) => [Number(line.line), Number(line.quantity)]),
+      );
+      if (lineItems.some((line) => !availableByLine.has(Number(line.lineNumber)) || line.quantity > Number(availableByLine.get(Number(line.lineNumber)))))
+        return Response.json(
+          { error: "A bid quantity cannot exceed the quantity available on that deal line." },
+          { status: 400 },
+        );
+    }
     const multipleAwards = isMultipleAwardDeal(liveLines);
     let boxCount = 0;
     if (offerType === "line_item" && multipleAwards) {
@@ -243,7 +253,7 @@ export async function POST(request: Request) {
           !Number.isInteger(lineNumber) ||
           submittedByLine.has(lineNumber) ||
           !liveLine ||
-          Number(submitted.quantity) !== Number(liveLine.quantity)
+          Number(submitted.quantity) > Number(liveLine.quantity)
         )
           return Response.json(
             {

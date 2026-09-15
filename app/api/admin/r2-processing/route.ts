@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { employeeUser } from "../../../../lib/employee-server";
+import { pddSupabaseKey, pddSupabaseUrl } from "../../../../lib/pdd-auth";
 
 const headers = { "Cache-Control": "private, no-store" };
 const clean = (value: unknown, max = 500) =>
@@ -14,8 +15,25 @@ const dealStatuses = new Set([
 ]);
 const locations = new Set(["inbound", "in_house"]);
 const itemStatuses = new Set(["testing", "data_wipe", "grading", "complete"]);
+const existingLasVegasDeal = "161d58fe-bf77-41eb-9fc3-a903a42b5969";
+const rbdVendor = {
+  id: "5dd5a94c-704a-4019-96d8-09124a46e72f",
+  name: "RBD Electronics, Inc.",
+};
 const nextPoNumber = (rows: unknown[]) =>
   `PO-R2-${String(Math.max(0, ...rows.map((row) => Number(String((row as { po_number?: unknown }).po_number || "").match(/^PO-R2-(\d+)$/i)?.[1] || 0))) + 1).padStart(4, "0")}`;
+
+async function resolveVendor(request: Request, vendorId: string) {
+  if (!vendorId) return null;
+  const authorization = request.headers.get("authorization") || "";
+  const response = await fetch(
+    `${pddSupabaseUrl}/rest/v1/pdd_vendors?id=eq.${encodeURIComponent(vendorId)}&select=id,company_name&limit=1`,
+    { headers: { apikey: pddSupabaseKey, Authorization: authorization } },
+  );
+  if (!response.ok) return null;
+  const rows = await response.json() as Array<{ id: string; company_name: string }>;
+  return rows[0] || null;
+}
 
 export async function GET(request: Request) {
   const employee = await employeeUser(request);
@@ -24,9 +42,12 @@ export async function GET(request: Request) {
       { error: "Employee access required." },
       { status: 401, headers },
     );
+  await env.DB.prepare(
+    "UPDATE r2_processing_deals SET vendor_id=?,vendor_name=?,updated_at=? WHERE id=? AND vendor_id=''",
+  ).bind(rbdVendor.id, rbdVendor.name, new Date().toISOString(), existingLasVegasDeal).run();
   const [deals, items] = await Promise.all([
     env.DB.prepare(
-      "SELECT id,po_number,customer,location_status,status,notes,created_by,created_at,updated_at FROM r2_processing_deals ORDER BY CASE status WHEN 'awaiting_arrival' THEN 0 WHEN 'in_process' THEN 1 WHEN 'ready_for_workbook' THEN 2 ELSE 3 END,updated_at DESC",
+      "SELECT id,po_number,customer,vendor_id,vendor_name,location_status,status,notes,created_by,created_at,updated_at FROM r2_processing_deals ORDER BY CASE status WHEN 'awaiting_arrival' THEN 0 WHEN 'in_process' THEN 1 WHEN 'ready_for_workbook' THEN 2 ELSE 3 END,updated_at DESC",
     ).all(),
     env.DB.prepare(
       "SELECT id,deal_id,serial_number,technician,model_sku,tech_data_json,bitraser_report_id,bitraser_data_json,status,created_at,updated_at FROM r2_processing_items ORDER BY updated_at DESC",
@@ -62,14 +83,16 @@ export async function POST(request: Request) {
       now = new Date().toISOString();
     if (action === "create_deal") {
       const customer = clean(body.customer, 180),
+        vendorId = clean(body.vendorId, 100),
+        vendor = await resolveVendor(request, vendorId),
         locationStatus = clean(body.locationStatus, 30),
         existing = await env.DB.prepare(
           "SELECT po_number FROM r2_processing_deals",
         ).all(),
         poNumber = nextPoNumber(existing.results || []);
-      if (!customer || !locations.has(locationStatus))
+      if (!customer || !vendor || !locations.has(locationStatus))
         return Response.json(
-          { error: "Customer and location are required." },
+          { error: "Customer, vendor and location are required." },
           { status: 400, headers },
         );
       const id = crypto.randomUUID(),
@@ -94,12 +117,14 @@ export async function POST(request: Request) {
               seen.add(row.serialNumber),
           );
       await env.DB.prepare(
-        "INSERT INTO r2_processing_deals (id,po_number,customer,location_status,status,notes,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO r2_processing_deals (id,po_number,customer,vendor_id,vendor_name,location_status,status,notes,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
       )
         .bind(
           id,
           poNumber,
           customer,
+          vendorId,
+          clean(vendor.company_name, 180),
           locationStatus,
           locationStatus === "inbound" ? "awaiting_arrival" : "in_process",
           notes,
@@ -146,14 +171,19 @@ export async function POST(request: Request) {
           { status: 400, headers },
         );
       const deal = await env.DB.prepare(
-        "SELECT id FROM r2_processing_deals WHERE id=?",
+        "SELECT id,vendor_id FROM r2_processing_deals WHERE id=?",
       )
         .bind(dealId)
-        .first();
+        .first<{ id: string; vendor_id: string }>();
       if (!deal)
         return Response.json(
           { error: "R2 deal not found." },
           { status: 404, headers },
+        );
+      if (!deal.vendor_id)
+        return Response.json(
+          { error: "Assign a vendor to this R2 deal before processing items." },
+          { status: 400, headers },
         );
       const id = clean(body.id, 80) || crypto.randomUUID(),
         modelSku = clean(body.modelSku, 500),
@@ -188,17 +218,19 @@ export async function POST(request: Request) {
     }
     if (action === "update_deal") {
       const id = clean(body.id, 80),
+        vendorId = clean(body.vendorId, 100),
+        vendor = await resolveVendor(request, vendorId),
         status = clean(body.status, 30),
         locationStatus = clean(body.locationStatus, 30);
-      if (!id || !dealStatuses.has(status) || !locations.has(locationStatus))
+      if (!id || !vendor || !dealStatuses.has(status) || !locations.has(locationStatus))
         return Response.json(
-          { error: "Choose valid deal and location statuses." },
+          { error: "Vendor, deal status and location are required." },
           { status: 400, headers },
         );
       await env.DB.prepare(
-        "UPDATE r2_processing_deals SET status=?,location_status=?,notes=?,updated_at=? WHERE id=?",
+        "UPDATE r2_processing_deals SET vendor_id=?,vendor_name=?,status=?,location_status=?,notes=?,updated_at=? WHERE id=?",
       )
-        .bind(status, locationStatus, clean(body.notes, 2000), now, id)
+        .bind(vendorId, clean(vendor.company_name, 180), status, locationStatus, clean(body.notes, 2000), now, id)
         .run();
       return Response.json({ ok: true }, { headers });
     }

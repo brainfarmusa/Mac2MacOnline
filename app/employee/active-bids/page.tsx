@@ -459,6 +459,12 @@ export default function ActiveBidsPage() {
     { key: "closed", title: "Closed (Legacy)" },
     { key: "archived", title: "Archived (Legacy)" },
   ];
+  const lineNumbers = new Map(
+    sections
+      .filter((section) => section.key !== "r2_processing")
+      .flatMap((section) => filtered.filter((deal) => groupFor(deal) === section.key))
+      .map((deal, index) => [deal.id, index + 1]),
+  );
   async function awardBid(bid: Bid) {
     if (
       !window.confirm(
@@ -656,6 +662,7 @@ export default function ActiveBidsPage() {
               <table>
                 <thead>
                   <tr>
+                    <th className="activeBidLineNumber">Line</th>
                     <th>Event ID</th>
                     <th>Type</th>
                     <th>Rep</th>
@@ -699,6 +706,7 @@ export default function ActiveBidsPage() {
                           );
                         }}
                       >
+                        <td className="activeBidLineNumber">{lineNumbers.get(deal.id)}</td>
                         <td>
                           <a
                             href={`/public-deal-desk/${deal.deal_number.toLowerCase()}?from=summary`}
@@ -802,9 +810,10 @@ export default function ActiveBidsPage() {
                           />
                         </td>
                         <td>
-                          <input
+                          <textarea
                             className="activeBidNoteInput"
                             aria-label={`Comment for ${deal.deal_number}`}
+                            rows={1}
                             value={noteDrafts[deal.id] ?? note?.comment ?? ""}
                             onChange={(event) =>
                               setNoteDrafts((current) => ({
@@ -815,10 +824,6 @@ export default function ActiveBidsPage() {
                             onBlur={(event) =>
                               void saveNote(deal, note, event.target.value)
                             }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter")
-                                event.currentTarget.blur();
-                            }}
                             placeholder="Add comment"
                           />
                         </td>
@@ -962,7 +967,7 @@ export default function ActiveBidsPage() {
                   })}
                   {!rows.length && (
                     <tr>
-                      <td className="activeBidEmpty" colSpan={19}>
+                      <td className="activeBidEmpty" colSpan={20}>
                         No bids in this section.
                       </td>
                     </tr>

@@ -632,6 +632,17 @@ export default function DealManagement() {
                         >
                           View
                         </a>
+                        {(currentUserRole === "administrator" ||
+                          deal.created_by === currentUserId ||
+                          deal.owner_email.toLowerCase() ===
+                            currentUserEmail.toLowerCase()) && (
+                          <a
+                            className="editFullDealButton"
+                            href={`/public-deal-desk/deal-builder?edit=${encodeURIComponent(deal.deal_number)}`}
+                          >
+                            Edit
+                          </a>
+                        )}
                         <select
                           aria-label={`Status for ${deal.deal_number}`}
                           value={deal.status}

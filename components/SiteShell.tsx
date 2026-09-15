@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import EmployeeWorkbookLink from "./EmployeeWorkbookLink";
 import SiteSearch from "./SiteSearch";
 export function Header(){return <header className="site-header"><div className="nav-wrap"><Link href="/" className="brand"><img src="/assets/m2m-logo-transparent.png" alt="Mac2MacOnline"/></Link><nav aria-label="Main navigation"><Link href="/live-bid-board">Live Bid Board</Link><Link href="/equipment-we-buy">Equipment We Buy</Link><Link href="/trade-in">Trade-In</Link><Link href="/consignment">Consignment</Link><Link href="/want-to-buy">Want to Buy</Link><Link href="/want-to-sell">Want to Sell</Link><Link href="/m2m-r2-grading">M2M R2 Grading</Link><Link href="/certifications">Our Certifications</Link><Link href="/about">About</Link><a href="https://www.brainfarmusa.ai" target="_blank" rel="noreferrer">BrainFarm USA ↗</a><Link href="/account">My Account</Link><EmployeeWorkbookLink/></nav><SiteSearch/><Link className="button small" href="/trade-in">Start a Trade-In</Link></div></header>}
@@ -8,5 +11,13 @@ export function Footer(){return <footer><div className="footer-grid">
 <div><h3>Company</h3><Link href="/equipment-we-buy">Equipment We Buy</Link><Link href="/sell-ram-ssds-gpus-apple">Sell Parts &amp; Apple</Link><Link href="/itad-chico-northern-california">Northern California ITAD</Link><Link href="/m2m-r2-grading">M2M R2 Grading</Link><Link href="/r2v3-electronics-recycling">R2v3 Electronics Recycling</Link><Link href="/insights">Insights</Link><Link href="/certifications">Our Certifications</Link><Link href="/about">About & Partnership</Link><Link href="/privacy">Privacy &amp; Cookies</Link><Link href="/account">My Account</Link><Link href="/employee-login">Employee Login</Link><a href="https://www.brainfarmusa.ai" target="_blank" rel="noreferrer">BrainFarm USA ↗</a></div>
 <div><h3>Contact</h3><a href="mailto:sales@mac2maconline.com">sales@mac2maconline.com</a><p>Serving businesses and technology partners worldwide for over 30 years.</p></div>
 </div><div className="copyright">© 2026 Mac2MacOnline. R2v3 and ISO-certified operations.</div></footer>}
-export function Shell({children}:{children:React.ReactNode}){return <><Header/>{children}<Footer/></>}
+export function Shell({children}:{children:React.ReactNode}){
+  const pathname = usePathname();
+  const isEmployeePage = pathname === "/employee"
+    || pathname.startsWith("/employee/")
+    || pathname === "/public-deal-desk/deal-builder";
+
+  if(isEmployeePage)return <>{children}</>;
+  return <><Header/>{children}<Footer/></>;
+}
 export function PageHero({eyebrow,title,intro}:{eyebrow:string;title:string;intro:string}){return <section className="page-hero"><div className="wrap"><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p></div></section>}

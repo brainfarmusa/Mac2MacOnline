@@ -61,10 +61,10 @@ export default function EmployeeDashboard() {
     );
   return (
     <Shell>
-      <main className="employeeDashboard">
-        <header>
+      <main className="employeeDashboard dashboardHome">
+        <header className="dashboardHeader">
+          <p className="eyebrow dashboardTitle">M2M DASHBOARD</p>
           <div>
-            <p className="eyebrow">M2M DASHBOARD</p>
             <h1>Welcome, {profile?.display_name}</h1>
             <p>
               {profile?.email} ·{" "}

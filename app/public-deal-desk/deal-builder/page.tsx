@@ -603,9 +603,17 @@ export default function DealBuilder() {
       setProfile(currentProfile);
       setEmployees(profiles);
       setDealOwnerEmail(currentProfile.email);
+      const requestedDeal = new URLSearchParams(window.location.search)
+        .get("edit")
+        ?.trim()
+        .toUpperCase();
+      const ownershipFilter =
+        requestedDeal && currentProfile.role === "administrator"
+          ? ""
+          : `&or=(uploaded_by.eq.${encodeURIComponent(authUser.id)},employee_email.eq.${encodeURIComponent(currentProfile.email)})`;
       const [dealResponse, vendorResponse] = await Promise.all([
         pddAuthFetch(
-          `/rest/v1/pdd_deal_uploads?select=id,uploaded_by,employee_email,vendor_id,original_name,storage_path,created_at,source_row_count,source_headers,status,header_row,column_mapping,quantified_lines,quantified_line_count,mapping_reviewed_at,mapping_reviewed_by,deal_number,short_description,bid_close_date,bid_close_time,bid_timezone,display_name,display_filename,details_completed_at,published_at&or=(uploaded_by.eq.${encodeURIComponent(authUser.id)},employee_email.eq.${encodeURIComponent(currentProfile.email)})&order=created_at.desc&limit=1`,
+          `/rest/v1/pdd_deal_uploads?select=id,uploaded_by,employee_email,vendor_id,original_name,storage_path,created_at,source_row_count,source_headers,status,header_row,column_mapping,quantified_lines,quantified_line_count,mapping_reviewed_at,mapping_reviewed_by,deal_number,short_description,bid_close_date,bid_close_time,bid_timezone,display_name,display_filename,details_completed_at,published_at${requestedDeal ? `&deal_number=eq.${encodeURIComponent(requestedDeal)}` : ""}${ownershipFilter}&order=created_at.desc&limit=1`,
           { headers: { Authorization: `Bearer ${active.access_token}` } },
         ),
         pddAuthFetch(

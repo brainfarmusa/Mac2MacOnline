@@ -8,7 +8,7 @@ export function DealWorkbookNav(){
   const [isAdmin,setIsAdmin]=useState(false);
   useEffect(()=>{void(async()=>{
     const path=window.location.pathname;
-    if(!(path==="/employee"||path.startsWith("/employee/")||path==="/public-deal-desk/deal-builder"))return;
+    if(!(path.startsWith("/employee/")||path==="/public-deal-desk/deal-builder"))return;
     const session=await currentPddSession();
     if(!session)return;
     const email=await currentPddEmployeeEmail(session);
@@ -19,6 +19,7 @@ export function DealWorkbookNav(){
   if(!visible)return null;
   return <nav className="dealWorkbookNav" aria-label="Dashboard">
     <a className="workbookHome" href="/employee">Dashboard</a>
+    <a className="workbookHome" href="/live-bid-board">Live Bid Board</a>
     <a className="workbookHome" href="/employee/active-bids">Deal Workbook</a>
     <details><summary>Deals</summary><div>
       <a href="/employee/box-awards">Box Awards</a>

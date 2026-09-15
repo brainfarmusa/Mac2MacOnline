@@ -197,6 +197,8 @@ export const r2ProcessingDeals = sqliteTable("r2_processing_deals", {
   id: text("id").primaryKey(),
   poNumber: text("po_number").notNull(),
   customer: text("customer").notNull(),
+  vendorId: text("vendor_id").notNull().default(""),
+  vendorName: text("vendor_name").notNull().default(""),
   locationStatus: text("location_status").notNull().default("inbound"),
   status: text("status").notNull().default("in_process"),
   notes: text("notes").notNull().default(""),

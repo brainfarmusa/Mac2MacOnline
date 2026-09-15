@@ -42,10 +42,10 @@ export async function downloadPddDocument(path:string,session:PddSession,filenam
  const link=document.createElement("a");link.href=URL.createObjectURL(await response.blob());link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
 
-export async function currentPddSession(){
+export async function currentPddSession(forceRefresh=false){
   let session=readPddSession();
   if(!session)return null;
-  if(session.expires_at && session.expires_at*1000<Date.now()+30_000 && session.refresh_token){
+  if((forceRefresh||!session.expires_at||session.expires_at*1000<Date.now()+30_000)&&session.refresh_token){
     const response=await pddAuthFetch("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:JSON.stringify({refresh_token:session.refresh_token})});
     if(!response.ok){clearPddSession();return null}
     session=await response.json() as PddSession;

@@ -4,6 +4,7 @@ import { Shell } from "../../../components/SiteShell";
 import {
   clearPddSession,
   currentPddSession,
+  pddAuthFetch,
   type PddSession,
 } from "../../../lib/pdd-auth";
 import {
@@ -17,6 +18,8 @@ type Deal = {
   id: string;
   po_number: string;
   customer: string;
+  vendor_id: string;
+  vendor_name: string;
   location_status: string;
   status: string;
   notes: string;
@@ -29,33 +32,56 @@ type Customer = {
   contact_name: string;
   email: string;
 };
+type Vendor = { id: string; company_name: string; contact_name: string };
 type Item = {
   id: string;
   deal_id: string;
   serial_number: string;
   technician: string;
   model_sku: string;
-  tech_data: Record<string, string>;
+  tech_data: Record<string, any>;
   bitraser_report_id: string;
   bitraser_data: Record<string, unknown>;
   status: string;
   updated_at: string;
 };
 type BitRaser = {
-  report: { id: string; reportDate: string };
-  erasure: { successfulDisks: string; failedDisks: string };
+  result: string;
+  report: { id: string; digitalId: string; reportDate: string; softwareVersion: string };
+  erasure: { totalDisks: string; successfulDisks: string; failedDisks: string; method: string; verification: string; writePasses: string };
   device: {
     manufacturer: string;
     model: string;
     sku: string;
     systemSerial: string;
+    chassisSerial: string;
+    boardSerial: string;
+    uuid: string;
     memory: string;
+    autopilotStatus: string;
   };
   hardwareTests: { name: string; status: string }[];
-  disks: { size: string; mediaType: string; status: string }[];
-  processors: { model: string; speed: string }[];
-  memoryModules: { sizeBytes: string }[];
+  disks: { diskNumber: string; model: string; serial: string; size: string; mediaType: string; smartStatus: string; badSectors: string; method: string; status: string; started: string; completed: string; duration: string }[];
+  processors: { manufacturer: string; model: string; cores: string; speed: string }[];
+  memoryModules: { manufacturer: string; sizeBytes: string; speed: string; formFactor: string; serial: string }[];
 };
+type ImeiDevice = {
+  model: string; serialNumber: string; activationStatus: string;
+  warrantyStatus: string; estimatedPurchaseDate: string; coverageEndDate: string;
+  technicalSupport: string; repairsServiceCoverage: string; appleCareEligible: string;
+  replacedByApple: string; findMyStatus: string; mdmLockStatus: string;
+  lockedCarrier: string; simLockStatus: string; orderId: string; price: string; duration: string;
+};
+const imeiFields: Array<[keyof ImeiDevice, string]> = [
+  ["model", "Model"], ["serialNumber", "IMEI / serial"],
+  ["activationStatus", "Activation status"], ["warrantyStatus", "Warranty status"],
+  ["estimatedPurchaseDate", "Estimated purchase date"], ["coverageEndDate", "Coverage end date"],
+  ["technicalSupport", "Telephone technical support"], ["repairsServiceCoverage", "Repairs and service coverage"],
+  ["appleCareEligible", "AppleCare eligible"], ["replacedByApple", "Replaced by Apple"],
+  ["findMyStatus", "Find My"], ["mdmLockStatus", "MDM lock status"],
+  ["lockedCarrier", "Locked carrier"], ["simLockStatus", "SIM-lock status"],
+  ["orderId", "Order ID"], ["price", "Check price"], ["duration", "Check duration"],
+];
 const checks = [
   ["bootsBattery", "Boots from battery"],
   ["batteryCharging", "Battery charging"],
@@ -140,6 +166,7 @@ export default function R2ProcessingPage() {
     [deals, setDeals] = useState<Deal[]>([]),
     [items, setItems] = useState<Item[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
+    [vendors, setVendors] = useState<Vendor[]>([]),
     [nextPoNumber, setNextPoNumber] = useState(""),
     [selected, setSelected] = useState(""),
     [loading, setLoading] = useState(true),
@@ -148,6 +175,7 @@ export default function R2ProcessingPage() {
     [creating, setCreating] = useState(false);
   const [newDeal, setNewDeal] = useState({
     customer: "",
+    vendorId: "",
     locationStatus: "inbound",
     notes: "",
   });
@@ -170,9 +198,10 @@ export default function R2ProcessingPage() {
     sanitizationStatus: "not_evaluated",
     gradeComments: "",
     finalResult: "",
-    techData: { ...emptyTech(), testDate: today() },
+    techData: { ...emptyTech(), testDate: today() } as Record<string, any>,
     bitraserReportId: "",
     bitraserData: {} as Record<string, unknown>,
+    imeiData: {} as Record<string, unknown>,
   });
   const headers = useMemo(
     () =>
@@ -182,11 +211,12 @@ export default function R2ProcessingPage() {
   async function load(active = session) {
     if (!active) return;
     const auth = { Authorization: `Bearer ${active.access_token}` },
-      [response, customerResponse] = await Promise.all([
+      [response, customerResponse, vendorResponse] = await Promise.all([
         fetch("/api/admin/r2-processing", { headers: auth, cache: "no-store" }),
         fetch("/api/admin/contacts", { headers: auth, cache: "no-store" }),
+        pddAuthFetch("/rest/v1/pdd_vendors?select=id,company_name,contact_name&order=company_name.asc", { headers: auth, cache: "no-store" }),
       ]);
-    if (response.status === 401 || customerResponse.status === 401) {
+    if (response.status === 401 || customerResponse.status === 401 || vendorResponse.status === 401) {
       clearPddSession();
       window.location.replace(
         "/employee-login?return_to=/employee/r2-processing",
@@ -206,8 +236,11 @@ export default function R2ProcessingPage() {
         ).values(),
       ].sort((a, b) => a.company.localeCompare(b.company)),
     );
+    setVendors(vendorResponse.ok ? await vendorResponse.json() as Vendor[] : []);
     setNextPoNumber(data.nextPoNumber || "");
-    setSelected((current) => current || data.deals?.[0]?.id || "");
+    // Keep the landing view unselected so an employee deliberately chooses
+    // the R2 deal they are about to process.
+    setSelected((current) => current);
     setLoading(false);
   }
   useEffect(() => {
@@ -227,7 +260,9 @@ export default function R2ProcessingPage() {
     })();
   }, []);
   const deal = deals.find((row) => row.id === selected),
-    dealItems = items.filter((row) => row.deal_id === selected);
+    dealItems = items.filter((row) => row.deal_id === selected),
+    imeiData = item.imeiData as unknown as ImeiDevice,
+    bitRaserData = item.bitraserData as unknown as BitRaser;
   async function post(body: Record<string, unknown>) {
     if (!headers) return null;
     setBusy(true);
@@ -287,12 +322,13 @@ export default function R2ProcessingPage() {
     const data = await post({
       action: "create_deal",
       ...newDeal,
+      vendorName: vendors.find((vendor) => vendor.id === newDeal.vendorId)?.company_name || "",
       uploadName,
       items: imported,
     });
     if (data) {
       setCreating(false);
-      setNewDeal({ customer: "", locationStatus: "inbound", notes: "" });
+      setNewDeal({ customer: "", vendorId: "", locationStatus: "inbound", notes: "" });
       setUploadName("");
       setUploadPreview(null);
       setSerialColumn(-1);
@@ -337,6 +373,7 @@ export default function R2ProcessingPage() {
         techData: { ...emptyTech(), testDate: today() },
         bitraserReportId: "",
         bitraserData: {},
+        imeiData: {},
       });
       return;
     }
@@ -362,16 +399,20 @@ export default function R2ProcessingPage() {
       },
       bitraserReportId: row.bitraser_report_id,
       bitraserData: row.bitraser_data,
+      imeiData:
+        row.tech_data.imeiCheck && typeof row.tech_data.imeiCheck === "object"
+          ? row.tech_data.imeiCheck
+          : {},
     });
   }
-  async function pullBitRaser() {
-    if (!headers || !item.serialNumber) return;
+  async function pullBitRaser(serialNumber = item.serialNumber) {
+    if (!headers || !serialNumber) return;
     setBusy(true);
     setMessage("");
     const response = await fetch("/api/admin/bitraser", {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ value: item.serialNumber }),
+        body: JSON.stringify({ value: serialNumber }),
       }),
       data = await response.json().catch(() => ({}));
     setBusy(false);
@@ -422,6 +463,58 @@ export default function R2ProcessingPage() {
     }));
     setMessage(`BitRaser report ${r.report.id} loaded.`);
   }
+  async function pullImei(serialNumber = item.serialNumber) {
+    if (!headers || !serialNumber || !selected) return;
+    setBusy(true);
+    setMessage("");
+    const response = await fetch("/api/admin/imei-checker", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId: selected, identifier: serialNumber }),
+      }),
+      data = await response.json().catch(() => ({}));
+    setBusy(false);
+    if (!response.ok) {
+      setMessage(data.error || "IMEI Checker data could not be loaded.");
+      return;
+    }
+    const result = data.results?.[0], device = result?.device as ImeiDevice | undefined;
+    if (!device) {
+      setMessage("IMEI Checker returned no device data.");
+      return;
+    }
+    setItem((current) => ({
+      ...current,
+      modelSku: current.modelSku || device.model || "",
+      imeiData: {
+        ...device,
+        serviceId: result.service_id,
+        serviceName: result.service_name,
+        responseStatus: result.response_status,
+        checkedAt: result.checked_at,
+        checkedBy: result.checked_by,
+        cached: Boolean(result.cached),
+        raw: result.response,
+      },
+      techData: {
+        ...current.techData,
+        imeiModel: device.model,
+        activationStatus: device.activationStatus,
+        warrantyStatus: device.warrantyStatus,
+        estimatedPurchaseDate: device.estimatedPurchaseDate,
+        coverageEndDate: device.coverageEndDate,
+        technicalSupport: device.technicalSupport,
+        repairsServiceCoverage: device.repairsServiceCoverage,
+        appleCareEligible: device.appleCareEligible,
+        replacedByApple: device.replacedByApple,
+        findMyStatus: device.findMyStatus,
+        mdmLockStatus: device.mdmLockStatus || "Not Known",
+        lockedCarrier: device.lockedCarrier,
+        simLockStatus: device.simLockStatus,
+      },
+    }));
+    setMessage(`IMEI Checker data loaded${result.cached ? " from the saved result" : ""}.`);
+  }
   async function saveItem(event: FormEvent) {
     event.preventDefault();
     if (!selected) return;
@@ -433,6 +526,7 @@ export default function R2ProcessingPage() {
       sanitizationStatus: item.sanitizationStatus,
       gradeComments: item.gradeComments,
       finalResult: item.finalResult,
+      imeiCheck: item.imeiData,
     };
     const data = await post({
       action: "save_item",
@@ -457,6 +551,8 @@ export default function R2ProcessingPage() {
     const data = await post({
       action: "update_deal",
       id: deal.id,
+      vendorId: deal.vendor_id,
+      vendorName: deal.vendor_name,
       status: deal.status,
       locationStatus: deal.location_status,
       notes: deal.notes,
@@ -529,7 +625,7 @@ export default function R2ProcessingPage() {
               <option value="">Select a deal…</option>
               {deals.map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.po_number} · {row.customer} ·{" "}
+                  {row.po_number} · {row.customer} · {row.vendor_name || "Vendor required"} ·{" "}
                   {row.location_status.replace("_", " ")}
                 </option>
               ))}
@@ -566,6 +662,21 @@ export default function R2ProcessingPage() {
                 {customers.map((customer) => (
                   <option key={customer.id} value={customer.company}>
                     {customer.company}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Vendor *
+              <select
+                required
+                value={newDeal.vendorId}
+                onChange={(e) => setNewDeal({ ...newDeal, vendorId: e.target.value })}
+              >
+                <option value="">Select vendor…</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.company_name}{vendor.contact_name ? ` · ${vendor.contact_name}` : ""}
                   </option>
                 ))}
               </select>
@@ -689,13 +800,28 @@ export default function R2ProcessingPage() {
           </p>
         )}
         {deal && (
-          <>
+          <div className="r2SelectedDeal">
             <section className="r2DealHeader">
               <div>
                 <small>PO NUMBER</small>
                 <h2>{deal.po_number}</h2>
-                <p>{deal.customer}</p>
+                <p>Customer: {deal.customer}</p>
+                <p><b>Vendor: {deal.vendor_name || "Assignment required"}</b></p>
               </div>
+              <label>
+                Vendor *
+                <select
+                  required
+                  value={deal.vendor_id || ""}
+                  onChange={(e) => {
+                    const vendor = vendors.find((row) => row.id === e.target.value);
+                    setDeals((rows) => rows.map((row) => row.id === deal.id ? { ...row, vendor_id: e.target.value, vendor_name: vendor?.company_name || "" } : row));
+                  }}
+                >
+                  <option value="">Select vendor…</option>
+                  {vendors.map((vendor) => <option key={vendor.id} value={vendor.id}>{vendor.company_name}</option>)}
+                </select>
+              </label>
               <label>
                 Location
                 <select
@@ -860,18 +986,48 @@ export default function R2ProcessingPage() {
                 <div>
                   <span>COMPUTER TEST SHEET · PO {deal.po_number}</span>
                   <h2>
-                    {item.id ? "Edit serialized item" : "Add serialized item"}
+                    {item.id
+                      ? "Edit serialized item"
+                      : "Enter the first serial number to begin"}
                   </h2>
                 </div>
                 {item.bitraserReportId && (
                   <b>BitRaser #{item.bitraserReportId}</b>
                 )}
               </header>
+              <div className="r2SerialPicker">
+                <label>
+                  Serial number from uploaded deal
+                  <select
+                    value={item.id}
+                    onChange={(e) => {
+                      const row = dealItems.find((entry) => entry.id === e.target.value);
+                      if (row) {
+                        editItem(row);
+                      }
+                      else editItem();
+                    }}
+                  >
+                    <option value="">Enter a new serial number…</option>
+                    {dealItems.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {row.serial_number}{row.model_sku ? ` · ${row.model_sku}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span>
+                  {dealItems.length
+                    ? `${dealItems.length} uploaded serial ${dealItems.length === 1 ? "number" : "numbers"} available`
+                    : "No serial numbers were included in the uploaded deal"}
+                </span>
+              </div>
               <div className="r2Identity">
                 <label>
                   Serial number *
                   <input
                     required
+                    autoFocus={!item.id}
                     value={item.serialNumber}
                     onChange={(e) =>
                       setItem({
@@ -881,14 +1037,24 @@ export default function R2ProcessingPage() {
                     }
                   />
                 </label>
-                <button
-                  type="button"
-                  className="button"
-                  disabled={busy || !item.serialNumber}
-                  onClick={pullBitRaser}
-                >
-                  Pull from BitRaser
-                </button>
+                <div className="r2ConnectionButtons">
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={busy || !item.serialNumber}
+                    onClick={() => void pullImei()}
+                  >
+                    {busy ? "Loading…" : "Pull IMEI Data"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={busy || !item.serialNumber}
+                    onClick={() => void pullBitRaser()}
+                  >
+                    {busy ? "Loading…" : "Pull BitRaser Data"}
+                  </button>
+                </div>
                 <label>
                   Test date *
                   <input
@@ -932,6 +1098,69 @@ export default function R2ProcessingPage() {
                   </select>
                 </label>
               </div>
+              {Object.keys(item.imeiData).length > 0 && (
+                <section className="r2ConnectionData">
+                  <header>
+                    <div>
+                      <span>IMEI CHECKER</span>
+                      <h3>Apple, carrier and lock information</h3>
+                    </div>
+                    <b>{String(item.imeiData.responseStatus || "received")}</b>
+                  </header>
+                  <dl className="r2DataGrid">
+                    {imeiFields.map(([key, label]) => (
+                      <div key={key}>
+                        <dt>{label}</dt>
+                        <dd>{imeiData[key] || "Not Known"}</dd>
+                      </div>
+                    ))}
+                    <div><dt>Service</dt><dd>{String(item.imeiData.serviceName || "Not Known")}</dd></div>
+                    <div><dt>Checked</dt><dd>{String(item.imeiData.checkedAt || "Not Known")}</dd></div>
+                    <div><dt>Checked by</dt><dd>{String(item.imeiData.checkedBy || "Not Known")}</dd></div>
+                  </dl>
+                </section>
+              )}
+              {Object.keys(item.bitraserData).length > 0 && bitRaserData.report && (
+                <section className="r2ConnectionData">
+                  <header>
+                    <div>
+                      <span>BITRASER</span>
+                      <h3>Erasure report and hardware inventory</h3>
+                    </div>
+                    <b>{bitRaserData.result || "received"}</b>
+                  </header>
+                  <h4>Report and erasure</h4>
+                  <dl className="r2DataGrid">
+                    {[
+                      ["Report ID", bitRaserData.report.id], ["Digital ID", bitRaserData.report.digitalId],
+                      ["Report date", bitRaserData.report.reportDate], ["Software version", bitRaserData.report.softwareVersion],
+                      ["Total disks", bitRaserData.erasure.totalDisks], ["Successful disks", bitRaserData.erasure.successfulDisks],
+                      ["Failed disks", bitRaserData.erasure.failedDisks], ["Erasure method", bitRaserData.erasure.method],
+                      ["Verification", bitRaserData.erasure.verification], ["Write passes", bitRaserData.erasure.writePasses],
+                    ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "Not Known"}</dd></div>)}
+                  </dl>
+                  <h4>Device</h4>
+                  <dl className="r2DataGrid">
+                    {[
+                      ["Manufacturer", bitRaserData.device.manufacturer], ["Model", bitRaserData.device.model],
+                      ["SKU", bitRaserData.device.sku], ["System serial", bitRaserData.device.systemSerial],
+                      ["Chassis serial", bitRaserData.device.chassisSerial], ["Board serial", bitRaserData.device.boardSerial],
+                      ["UUID", bitRaserData.device.uuid], ["Installed memory", bitRaserData.device.memory],
+                      ["Autopilot status", bitRaserData.device.autopilotStatus],
+                    ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || "Not Known"}</dd></div>)}
+                  </dl>
+                  <h4>Hardware tests</h4>
+                  <dl className="r2DataGrid">
+                    {(bitRaserData.hardwareTests || []).map((test) => <div key={test.name}><dt>{test.name}</dt><dd>{test.status || "Not Known"}</dd></div>)}
+                  </dl>
+                  <h4>Disks</h4>
+                  <div className="r2ConnectionTable"><table><thead><tr><th>Disk</th><th>Model</th><th>Serial</th><th>Size</th><th>Media</th><th>SMART</th><th>Bad sectors</th><th>Method</th><th>Status</th><th>Started</th><th>Completed</th><th>Duration</th></tr></thead><tbody>{(bitRaserData.disks || []).map((disk, index) => <tr key={`${disk.serial}-${index}`}><td>{disk.diskNumber || index + 1}</td><td>{disk.model || "—"}</td><td>{disk.serial || "—"}</td><td>{disk.size || "—"}</td><td>{disk.mediaType || "—"}</td><td>{disk.smartStatus || "—"}</td><td>{disk.badSectors || "—"}</td><td>{disk.method || "—"}</td><td>{disk.status || "—"}</td><td>{disk.started || "—"}</td><td>{disk.completed || "—"}</td><td>{disk.duration || "—"}</td></tr>)}</tbody></table></div>
+                  <h4>Processors</h4>
+                  <div className="r2ConnectionTable"><table><thead><tr><th>Manufacturer</th><th>Model</th><th>Cores</th><th>Speed</th></tr></thead><tbody>{(bitRaserData.processors || []).map((cpu, index) => <tr key={index}><td>{cpu.manufacturer || "—"}</td><td>{cpu.model || "—"}</td><td>{cpu.cores || "—"}</td><td>{cpu.speed || "—"}</td></tr>)}</tbody></table></div>
+                  <h4>Memory modules</h4>
+                  <div className="r2ConnectionTable"><table><thead><tr><th>Manufacturer</th><th>Size</th><th>Speed</th><th>Form factor</th><th>Serial</th></tr></thead><tbody>{(bitRaserData.memoryModules || []).map((memory, index) => <tr key={index}><td>{memory.manufacturer || "—"}</td><td>{memory.sizeBytes || "—"}</td><td>{memory.speed || "—"}</td><td>{memory.formFactor || "—"}</td><td>{memory.serial || "—"}</td></tr>)}</tbody></table></div>
+                </section>
+              )}
               <div className="r2TextFields">
                 {texts.map(([key, name]) => (
                   <label key={key}>
@@ -1062,7 +1291,7 @@ export default function R2ProcessingPage() {
                 </button>
               </footer>
             </form>
-          </>
+          </div>
         )}
       </main>
     </Shell>

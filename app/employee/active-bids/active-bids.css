@@ -144,7 +144,7 @@
 }
 .activeBidTableWrap table {
   width: 100%;
-  min-width: 1900px;
+  min-width: 2035px;
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 11px;
@@ -221,38 +221,38 @@
 }
 .activeBidTableWrap th:nth-child(1),
 .activeBidTableWrap td:nth-child(1) {
-  width: 88px;
+  width: 40px;
+  text-align: center;
 }
 .activeBidTableWrap th:nth-child(2),
 .activeBidTableWrap td:nth-child(2) {
-  width: 74px;
+  width: 120px;
 }
 .activeBidTableWrap th:nth-child(3),
 .activeBidTableWrap td:nth-child(3) {
-  width: 48px;
-  text-align: center;
+  width: 114px;
 }
 .activeBidTableWrap th:nth-child(4),
 .activeBidTableWrap td:nth-child(4) {
-  width: 140px;
+  width: 48px;
+  text-align: center;
 }
 .activeBidTableWrap th:nth-child(5),
 .activeBidTableWrap td:nth-child(5) {
-  width: 210px;
+  width: 140px;
 }
 .activeBidTableWrap th:nth-child(6),
 .activeBidTableWrap td:nth-child(6) {
-  width: 82px;
+  width: 210px;
 }
 .activeBidTableWrap th:nth-child(7),
 .activeBidTableWrap td:nth-child(7) {
-  width: 55px;
-  text-align: right;
+  width: 82px;
 }
 .activeBidTableWrap th:nth-child(8),
 .activeBidTableWrap td:nth-child(8) {
-  width: 42px;
-  text-align: center;
+  width: 55px;
+  text-align: right;
 }
 .activeBidTableWrap th:nth-child(9),
 .activeBidTableWrap td:nth-child(9) {
@@ -261,48 +261,67 @@
 }
 .activeBidTableWrap th:nth-child(10),
 .activeBidTableWrap td:nth-child(10) {
-  width: 104px;
+  width: 42px;
+  text-align: center;
 }
 .activeBidTableWrap th:nth-child(11),
 .activeBidTableWrap td:nth-child(11) {
-  width: 100px;
+  width: 104px;
 }
 .activeBidTableWrap th:nth-child(12),
 .activeBidTableWrap td:nth-child(12) {
-  width: 240px;
+  width: 100px;
 }
 .activeBidTableWrap th:nth-child(13),
 .activeBidTableWrap td:nth-child(13) {
-  width: 62px;
-  text-align: center;
+  width: 240px;
 }
 .activeBidTableWrap th:nth-child(14),
 .activeBidTableWrap td:nth-child(14) {
-  width: 130px;
+  width: 62px;
+  text-align: center;
 }
 .activeBidTableWrap th:nth-child(15),
-.activeBidTableWrap td:nth-child(15),
+.activeBidTableWrap td:nth-child(15) {
+  width: 130px;
+}
 .activeBidTableWrap th:nth-child(16),
-.activeBidTableWrap td:nth-child(16),
+.activeBidTableWrap td:nth-child(16) {
+  width: 52px;
+  text-align: center;
+}
 .activeBidTableWrap th:nth-child(17),
-.activeBidTableWrap td:nth-child(17) {
+.activeBidTableWrap td:nth-child(17),
+.activeBidTableWrap th:nth-child(18),
+.activeBidTableWrap td:nth-child(18) {
   width: 100px;
   text-align: right;
 }
-.activeBidTableWrap th:nth-child(18),
-.activeBidTableWrap td:nth-child(18) {
+.activeBidTableWrap th:nth-child(19),
+.activeBidTableWrap td:nth-child(19) {
   width: 108px;
   text-align: center;
 }
+.activeBidTableWrap th:nth-child(20),
+.activeBidTableWrap td:nth-child(20) {
+  width: 140px;
+}
+.activeBidLineNumber{background:#f7fafc;color:#60798b;font-weight:900;font-variant-numeric:tabular-nums}
 .activeBidNoteInput {
   width: 100%;
-  height: 25px;
-  padding: 0 6px;
+  min-height: 25px;
+  max-height: 86px;
+  padding: 5px 6px;
   border: 1px solid #b6cad8;
   border-radius: 4px;
   background: #fff;
   color: #17283a;
   font: inherit;
+  line-height: 1.35;
+  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  field-sizing: content;
 }
 .activeBidAmountInput {
   display: flex;

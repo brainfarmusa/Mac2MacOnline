@@ -1,0 +1,20 @@
+create extension if not exists pgcrypto;
+create table if not exists public.pdd_deals (id uuid primary key default gen_random_uuid(),deal_number text not null unique,direction text not null check(direction in('buying','selling')),category text not null,title text not null,description text not null default '',quantity integer not null check(quantity>0),manufacturer text not null default '',part_number text not null default '',closes_at timestamptz not null,location text not null default '',status text not null default 'draft' check(status in('draft','open','awarded','closed','archived')),published boolean not null default false,public_notes text,winning_bid_id uuid,shopify_draft_order_id text,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create table if not exists public.pdd_bids (id uuid primary key,bid_number text not null unique,deal_id uuid not null references public.pdd_deals(id) on delete restrict,company text not null,contact_name text not null,email text not null,phone text not null,quantity integer not null check(quantity>0),unit_price numeric(14,2) not null check(unit_price>=0),notes text not null,attachment_path text,status text not null default 'submitted' check(status in('submitted','shortlisted','awarded','rejected','withdrawn')),created_at timestamptz not null default now());
+alter table public.pdd_deals drop constraint if exists pdd_deals_winning_bid_id_fkey;
+alter table public.pdd_deals add constraint pdd_deals_winning_bid_id_fkey foreign key(winning_bid_id) references public.pdd_bids(id) on delete set null;
+create index if not exists pdd_deals_public_idx on public.pdd_deals(published,status,closes_at);
+create index if not exists pdd_bids_deal_idx on public.pdd_bids(deal_id,created_at desc);
+alter table public.pdd_deals enable row level security;
+alter table public.pdd_bids enable row level security;
+drop policy if exists "public can view open deals" on public.pdd_deals;
+create policy "public can view open deals" on public.pdd_deals for select to anon using(published=true and status='open' and closes_at>now());
+drop policy if exists "public can submit bids" on public.pdd_bids;
+create policy "public can submit bids" on public.pdd_bids for insert to anon with check(status='submitted' and exists(select 1 from public.pdd_deals d where d.id=deal_id and d.published=true and d.status='open' and d.closes_at>now()));
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('pdd-attachments','pdd-attachments',false,10485760,array['application/pdf','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','text/csv','image/jpeg','image/png']) on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
+drop policy if exists "public can upload pdd attachments" on storage.objects;
+create policy "public can upload pdd attachments" on storage.objects for insert to anon with check(bucket_id='pdd-attachments');
+insert into public.pdd_deals(deal_number,direction,category,title,description,quantity,manufacturer,part_number,closes_at,location,status,published) values
+('PDD-260821-01','selling','Server Memory','64GB DDR5 ECC RDIMM Memory','Enterprise server memory available as one wholesale lot. Exact manufacturer labels and test report are available to qualified buyers.',128,'SK hynix / Micron','Multiple qualified P/Ns','2026-08-28 17:00:00-07','California, USA','open',true),
+('PDD-260821-02','buying','NVIDIA GPUs','NVIDIA L4 24GB GPUs Wanted','Mac2MacOnline is requesting offers for tested NVIDIA L4 GPUs. Include quantity, condition, warranty status and equipment location.',24,'NVIDIA','L4 24GB','2026-08-30 17:00:00-07','Worldwide','open',true),
+('PDD-260821-03','selling','Enterprise SSDs','3.84TB NVMe Enterprise SSD Lot','Data-center NVMe SSDs with quantities and health details supplied in the complete lot file.',80,'Samsung','PM9A3 3.84TB','2026-09-02 12:00:00-07','California, USA','open',true) on conflict(deal_number) do nothing;

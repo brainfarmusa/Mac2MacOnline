@@ -188,15 +188,10 @@ const steps = [
   ],
   [
     "04",
-    "Review mapping",
-    "Verify every quantified line maps back to its original rows.",
-  ],
-  [
-    "05",
     "Deal details",
     "Set the deal number, title, description and closing date.",
   ],
-  ["06", "Publish deal", "Create the customer listing and bid spreadsheet."],
+  ["05", "Publish deal", "Create the customer listing and bid spreadsheet."],
 ] as const;
 
 const safeFileName = (name: string) =>
@@ -440,6 +435,34 @@ function quantifySpreadsheet(
     ...line,
     line: index + 1,
   }));
+}
+
+function automaticMappingIsSafe(
+  sheet: RawSpreadsheetPreview,
+  columns: ColumnChoice[],
+  lines: QuantifiedLine[],
+  awardMode: AwardMode,
+) {
+  const normalizedHeaders = sheet.headers.map((header) => header.trim().toLowerCase());
+  const quantityColumns = columns.filter((column) => column.role === "quantity");
+  const groupColumns = columns.filter((column) => column.role === "group");
+  const itemRows = sheet.rows.filter((row) => hasItemData(row, columns));
+  const mappedRows = lines.reduce((sum, line) => sum + line.sources.length, 0);
+  const quantitiesAreValid = quantityColumns.length !== 1 || itemRows.every((row) => {
+    const value = Number(String(row[quantityColumns[0].index] || "").replace(/,/g, ""));
+    return Number.isFinite(value) && value > 0;
+  });
+  return Boolean(
+    normalizedHeaders.length &&
+    normalizedHeaders.every(Boolean) &&
+    new Set(normalizedHeaders).size === normalizedHeaders.length &&
+    groupColumns.length &&
+    quantityColumns.length <= 1 &&
+    quantitiesAreValid &&
+    itemRows.length &&
+    mappedRows === itemRows.length &&
+    (awardMode !== "multiple" || groupColumns.some((column) => isBoxHeader(column.header))),
+  );
 }
 
 export default function DealBuilder() {
@@ -1210,8 +1233,63 @@ export default function DealBuilder() {
         );
       }
       setReplacementTarget(null);
-      setSaved(record);
-      setMapping(choicesFor(preview.headers, sheetSelection().mode === "lots"));
+      const automaticColumns = choicesFor(preview.headers, sheetSelection().mode === "lots");
+      const automaticLines = quantifySpreadsheet(preview, automaticColumns, awardMode);
+      setMapping(automaticColumns);
+      if (automaticMappingIsSafe(preview, automaticColumns, automaticLines, awardMode)) {
+        const reviewedAt = new Date().toISOString();
+        const nextColumnMapping: ColumnMapping = {
+          ...(record.column_mapping || { version: 1, columns: [] }),
+          version: 1,
+          columns: automaticColumns,
+          sheets: sheetSelection(),
+          dealDirection,
+          productCategory,
+          awardMode,
+        };
+        const automaticResponse = await pddAuthFetch(
+          `/rest/v1/pdd_deal_uploads?id=eq.${record.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify({
+              column_mapping: nextColumnMapping,
+              quantified_lines: automaticLines,
+              quantified_line_count: automaticLines.length,
+              mapping_reviewed_at: reviewedAt,
+              mapping_reviewed_by: user.id,
+              status: "quantified",
+              updated_at: reviewedAt,
+            }),
+          },
+        );
+        if (automaticResponse.ok) {
+          const automaticRecords = (await automaticResponse.json()) as SavedUpload[];
+          setSaved(automaticRecords[0] || {
+            ...record,
+            column_mapping: nextColumnMapping,
+            quantified_lines: automaticLines,
+            quantified_line_count: automaticLines.length,
+            mapping_reviewed_at: reviewedAt,
+            mapping_reviewed_by: user.id,
+            status: "quantified",
+          });
+          setMappingSaved(false);
+          setQuantified(automaticLines);
+          setQuantifiedSaved(true);
+          setReviewSaved(true);
+          setActiveStep(2);
+        } else {
+          setSaved(record);
+          setActiveStep(2);
+        }
+      } else {
+        setSaved(record);
+        setActiveStep(2);
+      }
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -1388,6 +1466,15 @@ export default function DealBuilder() {
     setSavingMapping(true);
     const headerRow = preview?.headerRow || saved.header_row || 1;
     try {
+      const parsed = preview || (await loadSavedPreview());
+      const automaticLines = quantifySpreadsheet(parsed, mapping, resolvedAwardMode);
+      const mappingPassed = automaticMappingIsSafe(
+        parsed,
+        mapping,
+        automaticLines,
+        resolvedAwardMode,
+      );
+      const reviewedAt = mappingPassed ? new Date().toISOString() : null;
       const sheets = saved.column_mapping?.sheets;
       const nextColumnMapping: ColumnMapping = {
         ...(saved.column_mapping || { version: 1, columns: [] }),
@@ -1409,13 +1496,13 @@ export default function DealBuilder() {
           body: JSON.stringify({
             header_row: headerRow,
             column_mapping: nextColumnMapping,
-            quantified_lines: [],
-            quantified_line_count: 0,
-            mapping_reviewed_at: null,
-            mapping_reviewed_by: null,
+            quantified_lines: automaticLines,
+            quantified_line_count: automaticLines.length,
+            mapping_reviewed_at: reviewedAt,
+            mapping_reviewed_by: reviewedAt ? user?.id || null : null,
             details_completed_at: null,
             published_at: null,
-            status: "mapping",
+            status: "quantified",
             updated_at: new Date().toISOString(),
           }),
         },
@@ -1428,18 +1515,18 @@ export default function DealBuilder() {
           ...saved,
           header_row: headerRow,
           column_mapping: nextColumnMapping,
-          quantified_lines: [],
-          quantified_line_count: 0,
-          mapping_reviewed_at: null,
-          mapping_reviewed_by: null,
+          quantified_lines: automaticLines,
+          quantified_line_count: automaticLines.length,
+          mapping_reviewed_at: reviewedAt,
+          mapping_reviewed_by: reviewedAt ? user?.id || null : null,
           details_completed_at: null,
           published_at: null,
-          status: "mapping",
+          status: "quantified",
         },
       );
-      setQuantified([]);
-      setQuantifiedSaved(false);
-      setReviewSaved(false);
+      setQuantified(automaticLines);
+      setQuantifiedSaved(true);
+      setReviewSaved(mappingPassed);
       setMappingSaved(true);
     } catch (reason) {
       setError(
@@ -1455,14 +1542,16 @@ export default function DealBuilder() {
     setError("");
     try {
       const parsed = await loadSavedPreview();
-      setQuantified(
-        quantifySpreadsheet(
-          parsed,
-          mapping,
-          saved?.column_mapping?.awardMode || awardMode || "single",
-        ),
-      );
-      setQuantifiedSaved(false);
+      const lines = saved?.quantified_lines?.length
+        ? saved.quantified_lines
+        : quantifySpreadsheet(
+            parsed,
+            mapping,
+            saved?.column_mapping?.awardMode || awardMode || "single",
+          );
+      setQuantified(lines);
+      setQuantifiedSaved(Boolean(saved?.quantified_lines?.length));
+      setReviewSaved(Boolean(saved?.mapping_reviewed_at));
       setActiveStep(3);
     } catch (reason) {
       setError(
@@ -1994,8 +2083,8 @@ export default function DealBuilder() {
         </header>
         <section className="consoleLayout">
           <nav className="builderSteps" aria-label="Deal Builder steps">
-            {steps.map(([number, title, description], index) => {
-              const step = (index + 1) as 1 | 2 | 3 | 4 | 5 | 6;
+            {steps.map(([number, title, description]) => {
+              const step = (number === "04" ? 5 : number === "05" ? 6 : Number(number)) as 1 | 2 | 3 | 4 | 5 | 6;
               const complete =
                 (step === 1 && Boolean(saved)) ||
                 (step === 2 && mappingSaved) ||
@@ -2034,7 +2123,7 @@ export default function DealBuilder() {
               <>
                 <div className="workspaceHeading">
                   <div>
-                    <span className="builderKicker">STEP 1 OF 6</span>
+                    <span className="builderKicker">STEP 1 OF 5</span>
                     <h2>Add the deal inventory</h2>
                     <p>
                       Upload the original inventory file or define headers and
@@ -2763,7 +2852,7 @@ export default function DealBuilder() {
                     >
                       ← Step 1
                     </button>
-                    <span className="builderKicker">STEP 2 OF 6</span>
+                    <span className="builderKicker">STEP 2 OF 5</span>
                     <h2>Confirm the spreadsheet columns</h2>
                     <p>
                       Columns marked “Match items” must be identical before rows
@@ -2902,9 +2991,9 @@ export default function DealBuilder() {
                       className="backStep changeFieldsLink"
                       onClick={returnToFieldSelection}
                     >
-                      ← Change the fields used in Step 3
+                      ← Review mapping and fields
                     </button>
-                    <span className="builderKicker">STEP 3 OF 6</span>
+                    <span className="builderKicker">STEP 3 OF 5</span>
                     <h2>Quantify like items</h2>
                     <p>
                       Every quantified line below represents rows that match
@@ -3004,7 +3093,7 @@ export default function DealBuilder() {
                     <button
                       onClick={saveQuantified}
                       disabled={
-                        !canEdit || savingQuantified || !quantified.length
+                        !canEdit || savingQuantified || quantifiedSaved || !quantified.length
                       }
                     >
                       {savingQuantified
@@ -3017,12 +3106,15 @@ export default function DealBuilder() {
                 </div>
                 {quantifiedSaved && (
                   <section className="nextStepNotice">
-                    <strong>Step 3 is complete.</strong>
+                    <strong>{reviewSaved ? "Automatic mapping passed." : "Step 3 is complete."}</strong>
                     <span>
-                      The grouped lines and original source-row map are saved
-                      and ready for review.
+                      {reviewSaved
+                        ? "Every original item row is accounted for. Continue to the deal details, or use Review Mapping if you want to inspect it."
+                        : "The grouped lines and original source-row map are saved and ready for review."}
                     </span>
-                    <button onClick={openStepFour}>Continue to Step 4</button>
+                    <button onClick={reviewSaved ? openStepFive : openStepFour}>
+                      {reviewSaved ? "Continue to Deal Details" : "Review mapping exception"}
+                    </button>
                   </section>
                 )}
               </>
@@ -3173,11 +3265,11 @@ export default function DealBuilder() {
                   <div>
                     <button
                       className="backStep"
-                      onClick={() => setActiveStep(4)}
+                      onClick={() => setActiveStep(3)}
                     >
-                      ← Step 4
+                      ← Step 3
                     </button>
-                    <span className="builderKicker">STEP 5 OF 6</span>
+                    <span className="builderKicker">STEP 4 OF 5</span>
                     <h2>Name the deal and set its close</h2>
                     <p>
                       The deal number and item quantity are automatic. Choose
@@ -3386,17 +3478,17 @@ export default function DealBuilder() {
                       ? "Saving deal details…"
                       : detailsSaved
                         ? "Deal details saved ✓"
-                        : "Save Step 5 details"}
+                        : "Save Step 4 details"}
                   </button>
                 </div>
                 {detailsSaved && (
                   <section className="nextStepNotice">
-                    <strong>Step 5 is complete.</strong>
+                    <strong>Step 4 is complete.</strong>
                     <span>
                       The deal name, closing details and spreadsheet filename
                       are saved.
                     </span>
-                    <button onClick={openStepSix}>Continue to Step 6</button>
+                    <button onClick={openStepSix}>Continue to Step 5</button>
                   </section>
                 )}
               </>
@@ -3408,9 +3500,9 @@ export default function DealBuilder() {
                       className="backStep"
                       onClick={() => setActiveStep(5)}
                     >
-                      ← Step 5
+                      ← Step 4
                     </button>
-                    <span className="builderKicker">STEP 6 OF 6</span>
+                    <span className="builderKicker">STEP 5 OF 5</span>
                     <h2>Review and publish the customer deal</h2>
                     <p>
                       This publishes only the quantified customer fields. Serial
